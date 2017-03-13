@@ -1,0 +1,3 @@
+make sure to set the clock frequency to 600hz, mode 1 register to 0x11, and mode 2 register to 0x14 for the PWM driver
+
+For the accelerometer, make sure to set the control bits on startup
