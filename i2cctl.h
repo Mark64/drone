@@ -9,15 +9,32 @@
 using namespace std;
 
 
-// theres really no use in having to specify the bus for each operation since in most cases i2c_1 will be used throughout, but this adds the ability to use mutiple busses with this code
-bool i2cSetBus(int8_t bus);
+// IMPORTANT: This supports 10 bit addresses if you pass an address larger than 128 into the address argument
+//   If your intention is not to access a 10 bit address, don't pass in a number > 128 or expect me to detect
+//   your error
 
-// read from register at i2c address
-// similar to 'i2cget -y bus address register'
-int16_t i2cRead(int16_t address, int16_t register);
+// theres really no use in having to specify the bus for each operation since in most cases i2c-1 will be 
+//   used throughout, but this adds the ability to use mutiple busses with this code
+// NOTE: limited to max 999 for the bus argument
+// NOTE 2: if you run into issues with an improper i2c file or erros reading or writing, the i2c file
+//   may be corrupted.  To reset the i2c device file, run this function, which will call the private 
+//   function in i2cctl.cpp to reinitialize the i2c file
+// returns true if successful (it will always be successful)
+bool i2cSetBus(uint8_t bus);
 
-// obvious a write is needed
-// similar to 'i2cset -y bus address register value;
-void i2cWrite(int16_t address. int16_t register, int16_t value);
+// read from the registers in the reg[] array at i2c address 'address'
+// can read multiple bytes at once (for instance, when there is an H and L register for 12 and 
+//   16 bit values) or just read one byte if only 1 register is provided
+// Similar to 'i2cget -t bus address register'
+// Returns the result of the read operation as a single integer containing the value with 
+//   the most significant bit as the first bit of the first register in the reg array
+uint32_t i2cRead(uint16_t address, uint8_t reg[], uint8_t numRegisters);
+
+// obviously a write is needed
+// similar to 'i2cset -y bus address register value'
+// writes in order, so the most significant bit of value get written to the most signficant
+//   bit of the first register in the reg array
+// returns a 1 on success and 0 on failure
+int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value);
 
 
