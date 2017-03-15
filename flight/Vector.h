@@ -16,6 +16,8 @@
 //
 // +Y can be found with the right hand rule but it points towards the left, which makes sense because I'm left handed
 
+#include<string>
+
 
 class Vec3double {
 
@@ -38,6 +40,9 @@ class Vec3double {
 	static Vec3double vectorFromAnglesAndMagnitude(double angleFlat, double angleVertical, double magnitude);
 	
 
+	// returns a string description of the vector
+	// useful for debuging
+	void description();
 };
 
 

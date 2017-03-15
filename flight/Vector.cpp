@@ -6,8 +6,9 @@
 
 #include<cmath>
 #include<iostream>
+#include<sstream>
 
-#include"vector.h"
+#include"Vector.h"
 
 // VERY IMPORTANT NOTE
 //
@@ -31,13 +32,17 @@ Vec3double :: Vec3double(double _x, double _y, double _z) {
 }
 
 
-Vec3double Vec3double::  vectorFromAnglesAndMagnitude(double angleFlat, double angleVertical, double magnitude) {
+Vec3double Vec3double :: vectorFromAnglesAndMagnitude(double angleFlat, double angleVertical, double magnitude) {
 	double x = cos(radiansFromDegrees(angleFlat)) * magnitude;
 	double y = sin(radiansFromDegrees(angleFlat)) * magnitude;
 	double z = sin(radiansFromDegrees(angleVertical)) * magnitude;
 	return Vec3double(x, y, z);
 }
 
+
+void Vec3double :: description() {
+	std::cout << "Vector\nx: " << this->x << "\ny: " << this->y << "\nz: " << this->z << "\n";
+}
 
 
 

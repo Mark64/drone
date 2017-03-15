@@ -83,6 +83,23 @@ int i2cInit() {
 
 
 
+// closes the i2c file
+void i2cClose() {
+	// gets the lock before it murders the i2c file
+	// this seems vaguely poetic
+	getLock();
+
+	// closes the i2c file
+	close(_i2cFile);
+	_i2cFile = -1000;
+
+	// releases the lock for the now useless i2c file
+	releaseLock();
+}
+
+
+
+
 // sets the i2c device address and also configures the i2c device to take 10 bit or 8 bit addresses
 // returns 0 for success and something else for error
 int i2cSetAddress(uint16_t address) {
@@ -208,7 +225,7 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters,  uint32_t va
 		if (debug == 1) {
 			printf("Failed to set device address %x in i2cctl.cpp\n", address); 
 		}
-		return 0;
+		return 1;
 	}
 	
 	// loops through all the registers and sets them to the correct position in the 'result' integer
@@ -237,12 +254,12 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters,  uint32_t va
 			}
 
 			releaseLock();
-			return 0;
+			return 1;
 		}
 	}
 
 	releaseLock();
-	return 1;
+	return 0;
 }
 
 

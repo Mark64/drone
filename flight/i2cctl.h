@@ -3,10 +3,7 @@
 //
 //   by Mark Hill
 
-#include<iostream>
 #include<stdint.h>
-
-using namespace std;
 
 
 // IMPORTANT: This supports 10 bit addresses if you pass an address larger than 128 into the address argument
@@ -34,7 +31,17 @@ uint32_t i2cRead(uint16_t address, uint8_t reg[], uint8_t numRegisters);
 // similar to 'i2cset -y bus address register value'
 // writes in order, so the most significant bit of value get written to the most signficant
 //   bit of the first register in the reg array
-// returns a 1 on success and 0 on failure
+// returns a 0 on success and -1 on failure
 int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value);
+
+
+
+
+// closes out the i2c file
+// I honestly can't anticipate a valid use for this since it's not like having the
+//   file open is that big a strain, but someone else may have better use, and its
+//   good practice to have this ability
+void i2cClose();
+
 
 

@@ -7,6 +7,7 @@
 #include<stdint.h>
 
 #include "i2cctl.h"
+#include "SensorManager.h"
 
 
 using namespace std;
@@ -17,6 +18,8 @@ void testAccel(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t v
 	printf("read: %x\n", result);
 	int success = i2cWrite(address, reg, numRegisters, val);
 	printf("write success: %d\ncurrent read: %x\n", success, i2cRead(address, reg, numRegisters));
+	Vec3double acc = accelerationVector();
+	acc.description();
 }
 
 int main() {
