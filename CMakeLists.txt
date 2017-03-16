@@ -16,7 +16,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/f
 
 add_subdirectory(flight)
 
-add_executable(Test FlightTest.cpp)
+add_executable(Test flight/FlightTest.cpp)
 target_link_libraries(Test flight)
 
 set(CONFIGURED_ONCE TRUE CACHE INTERNAL "Apparently this shows CMake has been configured once ????")
