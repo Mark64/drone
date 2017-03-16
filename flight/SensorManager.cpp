@@ -38,10 +38,16 @@ void initializeSensors() {
 	//
 	// gyroscope section
 	//
-	uint8_t gyroConfigRegisters[1] = {0x11};
+	uint8_t gyroConfigRegister[1] = {0x11};
 	// sets the gyroscope to 1.6kHz mode with a scale of 2000 degrees per second
 	uint8_t gyroConfig = 0x8c;
-	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegisters, 1, gyroConfig);
+	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig);
+
+	// sets the gyroscope high pass filter on and sets the filter cutoff frequency
+	//   to 2.07Hz with rounding enabled
+	gyroConfigRegister[0] = 0x16;
+	gyroConfig = 0x64;
+	gyroSuccess &= i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig);
 
 	if (gyroSuccess != 0) {
 		printf("Failed to set i2c configuration for gyroscope\n");
@@ -71,11 +77,14 @@ int16_t signedValue16bit(uint32_t twoComplement) {
 	return result;
 }
 
+
+// gets the linear acceleration from the gyroscope
 Vec3double accelerationVector() {	
 	// initializes the sensors if they have not been already
 	if (!_sensorsAvailable) {
 		initializeSensors();
 	}
+
 	// the hard-coded register addresses for the accelerometer
 	uint8_t accelXRegisters[2] = {0x29, 0x28};
 	uint8_t accelYRegisters[2] = {0x2b, 0x2a};
@@ -92,16 +101,19 @@ Vec3double accelerationVector() {
 	int zaccelInt = signedValue16bit(rawZaccel);
 
 	// convert the signed integer form into double form based on the configured accelerometer range
-	// scale is given as the +- range for the accelerometer
-	int scale = 16;
+	// scale is given as the +- g range for the accelerometer
+	// with a +- 16g scale and a 16 bit output integer, the raw value should be 
+	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - log2(16))
+	//   which equals 2^11 = 2048
+	// why 15? well remember, the raw 16 bit register output has to be converted to a signed value
+	//   two's complement effectively uses a bit to encode sign, so we lost a bit for the total amount
+	// for the sake of efficiency, this value is hardcoded, but it is important to know how it was 
+	//   determined for future adaptation
+	int divisor = 2048;
 
-	// yeah so about the 127...
-	//   I got that value because when I arranged the chip in an almost perfectly flat manner, the Z
-	//   acceleration was ~127.  There was not a single bit of information about that in the datasheet
-	//   so it could very well be wrong, but it seems to work experimentally
-	double xaccel = (double) xaccelInt / (double) scale / 127;
-	double yaccel = (double) yaccelInt / (double) scale / 127;
-	double zaccel = (double) zaccelInt / (double) scale / 127;
+	double xaccel = (double) xaccelInt / (double) divisor;
+	double yaccel = (double) yaccelInt / (double) divisor;
+	double zaccel = (double) zaccelInt / (double) divisor;
 
 	// create an even more user-friendly acceleration vector
 	Vec3double acceleration = Vec3double(xaccel, yaccel, zaccel);
@@ -110,11 +122,57 @@ Vec3double accelerationVector() {
 }
 
 
+// returns the vector containing the angular rotation rate of the gyroscope
+// also if you were wondering, yes I did just copy paste the acceleration function
+//   and then change variable names and comments.  It's necessary boilerplate, 
+//   the sensors are on the same chip, and I don't care if you know
+Vec3double rotationVector() {	
+	// initializes the sensors if they have not been already
+	if (!_sensorsAvailable) {
+		initializeSensors();
+	}
+
+	// the hard-coded register addresses for the gyroscope
+	uint8_t gyroXRegisters[2] = {0x23, 0x22};
+	uint8_t gyroYRegisters[2] = {0x25, 0x24};
+	uint8_t gyroZRegisters[2] = {0x27, 0x26};
+	
+	// retrieve the raw sensor data from the registers
+	uint32_t rawXrotation = i2cRead(gyroAddress, gyroXRegisters, 2);
+	uint32_t rawYrotation = i2cRead(gyroAddress, gyroYRegisters, 2);
+	uint32_t rawZrotation = i2cRead(gyroAddress, gyroZRegisters, 2);
+
+	// proccess the sensor data and turn it into a user-friendly rotation value
+	int xgyroInt = signedValue16bit(rawXrotation);
+	int ygyroInt = signedValue16bit(rawYrotation);
+	int zgyroInt = signedValue16bit(rawZrotation);
+
+	// convert the signed integer form into double form based on the configured gyroscope range
+	// scale is given as the +- dps range for the gyroscope
+	// with a +- 2000 dps scale and a 16 bit output integer, the raw value should be 
+	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - ceil(log2(2000)))
+	//   which equals 2^4 = 16
+	// why 15? well remember, the raw 16 bit register output has to be converted to a signed value
+	//   two's complement effectively uses a bit to encode sign, so we lost a bit for the total amount
+	// for the sake of efficiency, this value is hardcoded, but it is important to know how it was 
+	//   determined for future adaptation
+	int divisor = 32;
+
+	double xrotation = (double) xgyroInt / (double) divisor;
+	double yrotation = (double) ygyroInt / (double) divisor;
+	double zrotation = (double) zgyroInt / (double) divisor;
+
+	// create an even more user-friendly rotation vector
+	Vec3double rotation = Vec3double(xrotation, yrotation, zrotation);
+
+	return rotation;
+}
+
 
 
 // compass heading retrieval
-double compassHeading() { 
-	return 0;
+Vec3double magneticField() { 
+	return Vec3double(0,0,0);
 }
 
 

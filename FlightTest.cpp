@@ -6,8 +6,8 @@
 #include<stdio.h>
 #include<stdint.h>
 
-#include "i2cctl.h"
-#include "SensorManager.h"
+#include "flight/i2cctl.h"
+#include "flight/SensorManager.h"
 
 
 using namespace std;

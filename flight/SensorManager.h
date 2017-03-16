@@ -5,11 +5,17 @@
 #include "Vector.h"
 #include<stdint.h>
 
-// this collects data from the accelerometer and returns the acceleration vector
+// this collects data from the accelerometer and returns the linear acceleration vector
 Vec3double accelerationVector();
 
-// this collects data from the magnetometer and returns the heading of the device in degrees relative to the front forward face
-double compassHeading();
+// in a similar manner to the accelerationVector() function, this 
+//   collects sensors data and returns a vector, but of the angular
+//   rotation rate of the gyroscope instead of the linear acceleration
+Vec3double rotationVector();
+
+// this collects data from the magnetometer and returns a vector containing 
+//   the magnetic field as determined by the magnetometer 
+Vec3double magneticField();
 
 // returns the GPS position of the drone as a 2d coordinate position
 
