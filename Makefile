@@ -6,13 +6,29 @@
 SHELL := /bin/bash
 RM    := rm -rf
 MKDIR := mkdir -p
+EXECUTABLE_NAME := rocketTest
+
+CMAKE_TOOLCHAIN_FILE := toolchainRaspberryPi0.cmake
 
 all: ./build/Makefile
 	@ $(MAKE) -C build
 
-./build/Makefile:
-	@  ($(MKDIR) build > /dev/null)
-	@  (cd build > /dev/null 2>&1 && cmake ..)
+allpc: ./buildpc/Makefile
+	@ $(MAKE) -C buildpc
+
+./build/Makefile: toolchain
+	@ (cd build > /dev/null 2>&1 && cmake -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE) ..)
+
+./buildpc/Makefile:
+	@  ($(MKDIR) buildpc > /dev/null)
+	@  (cd buildpc > /dev/null 2>&1 && cmake ..)
+
+toolchain:
+	# installing the Raspberry Pi toolchain as defined by the "installRPIToolchain" script
+	@ (sh -x installRPIToolchain)
+
+install: all
+	@ (scp build/$(EXECUTABLE_NAME) rocket:~ && ssh rocket "sudo cp ~/$(EXECUTABLE_NAME) /usr/local/bin")
 
 distclean:
 	@  ($(MKDIR) build > /dev/null)
@@ -28,5 +44,10 @@ distclean:
 
 clean:
 	@ (cd build && $(MAKE) clean)
+
+cleanpc:
+	@ (cd buildpc && $(MAKE) clean)
+
+
 
 
