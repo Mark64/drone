@@ -2,10 +2,10 @@
 // This abstracts the motor control and allows for easy update and stabilization
 // Just pass in your motion vectors and this will ensure they are carried out, as well as stabilize the position when at rest
 
-#ifndef _VECTOR
+#ifndef _FlightManager
+#define _FlightManager
+
 #include "Vector.h"
-#define _VECTOR
-#endif
 
 // this function is called to signal to the motor controller that the system is ready for takeoff
 // it accepts 2 arguments:
@@ -43,4 +43,4 @@ void setAngularVelocityVector(Vec3double angularVelocityVector, void (*angularVe
 
 
 
-
+#endif

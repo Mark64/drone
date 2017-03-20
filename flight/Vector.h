@@ -16,6 +16,9 @@
 //
 // +Y can be found with the right hand rule but it points towards the left, which makes sense because I'm left handed
 
+#ifndef _Vector
+#define _Vector
+
 #include<string>
 
 
@@ -52,3 +55,5 @@ inline double radiansFromDegrees(double degrees);
 // I want my degrees back
 inline double degreesFromRadians(double radians);
 
+
+#endif

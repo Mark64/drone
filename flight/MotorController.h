@@ -4,6 +4,9 @@
 //
 // by Mark Hill
 
+#ifndef _MotorController
+#define _MotorController
+
 #include<stdint.h>
 
 // returns the thrust percentage of the addressed motor as a value between 0 - 1 where 1 is maximum thrust
@@ -12,3 +15,6 @@ double getMotorThrustPercentage(uint8_t motorNumber);
 // sets the thrust percentage for the addressed motor to the value passed to thrustPercentage where
 //   thrustPercentage is a value between 0 - 1 with 1 being maximum thrust
 void setMotorThrustPercentage(uint8_t motorNumber, double thrustPercentage);
+
+
+#endif

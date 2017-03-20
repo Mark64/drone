@@ -3,6 +3,9 @@
 //
 // by Mark Hill
 
+#ifndef _PWMController
+#define _PWMController
+
 #include<stdint.h>
 
 // returns the percentage the device is on as a value from 0 - 1
@@ -15,3 +18,6 @@ double getDutyPercent(uint8_t address);
 // pass in a value from 0 - 1 for the percentage on and a value 0 - n 
 //   where n is the number of PWM devices supported for the address
 void setDutyPercent(uint8_t address, double percent);
+
+
+#endif
