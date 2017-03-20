@@ -43,7 +43,7 @@ int _lock = 0;
 // this is a wait function and returns once the lock is removed to allow the i2c function to access the device
 void getLock() {
 	while(_lock) {
-		
+		printf("thread collision in i2cctl getLock\n\n");
 	}
 	_lock = 1;
 }
@@ -215,6 +215,92 @@ uint32_t i2cRead(uint16_t address, uint8_t reg[], uint8_t numRegisters) {
 	return result;
 }
 
+// Slightly more efficient but highly specific version of i2cRead for dealing 
+//   with sampling from the accelerometer and gyro or any other device with
+//   16 bit words split across a high and low register
+int i2cMultiWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults) {
+	int numSamples = 1;
+	// set address of i2c device and then check if it failed
+	if (i2cSetAddress(address) != 0) {
+		if (debug == 1) {
+			printf("Failed to set device address %x in i2cctl.cpp\n", address); 
+		}
+		return -1;
+	}
+	
+	// lock is needed for the rest of the function since reads and writes will
+	//   take place
+	getLock();
+	
+	// outer loop deals with the whole word being read
+	// it loops 'numRegisters/2' times, so reads 2 bytes per value
+	// result is placed into the index of 'readResults' that corresponds to the 'readIndex' variable
+	for (int readIndex = 0; readIndex < numRegisters/2; readIndex++) {
+		
+		// this variable will store the result of the read operation
+		uint32_t result = 0;
+
+		// now loop through twice to read from the two registers that make up the 
+		//   16 bit value to be placed into the variable 'result' above
+		for (int regIndex = 0; regIndex < 2; regIndex++) {
+			
+			// sets the curReg temporary variable based on the current readIndex and regIndex
+			uint8_t curReg = reg[regIndex + (2*readIndex)];
+	
+			// if you got this far, its time to actually perform a read and then, as you can guess, check if it failed
+			// in this version of i2cRead, we actually want to sample multiple times prior to determining and
+			//   returning a value
+			// by returning the average of n='numSuccesses' samples, the data will be less prone to
+			//   outliers (Yes, I did pay attention in your class Mrs. Romero and I know the mean is
+			//   not very resistant, but its the most efficient way to remove outliers in terms of the
+			//   amount of computing involved)
+			uint32_t sampleSum = 0;
+			// this is used as a way to deal with potential one time errors in reading
+			uint8_t numSuccesses = 0;
+			for (int n = 0; n < numSamples; n++) {
+				
+				// write the address of the register to be read (the first step in the i2c operation is actually to 
+				//   write to the slave the value of the i2c register you want to read from) and then check if it failed
+				if (write(_i2cFile, &curReg, 1) < 0) {
+					if (debug == 1) {
+						printf("Failed to set device register %x at address %x in i2cctl.cpp\n", curReg, address);
+					}
+				}
+				// this means register address setting was successful
+				// this is where the data is actually read and the success is checked
+				else {
+					uint32_t readData = 0;
+					if (read(_i2cFile, &readData, 1) < 0) {
+						if (debug == 1) {
+							printf("Failed to read from register %x at address %x in i2cctl.cpp\n", curReg, address);
+						}
+	
+						printf("failed to read %d sample from register %x\n", n, curReg);
+					}
+				
+					// if the read was actually successful, then increment the successes
+					// no use in adding junk data, so thats why both are in the else
+					else {
+						sampleSum += readData;
+						numSuccesses++;
+					}
+				}
+			}
+			// get the average which will become the value used
+			uint32_t data = sampleSum/numSuccesses;
+			// offset the bits in the data variable so that it can be addedd to 'result'
+			int offsets = 2 - (regIndex + 1);
+			data <<= offsets * 8;
+			
+			result += data;
+		}
+		readResults[readIndex] = result;
+	}
+
+	// lock done
+	releaseLock();
+	return 0;
+}
 
 
 
@@ -225,7 +311,7 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters,  uint32_t va
 		if (debug == 1) {
 			printf("Failed to set device address %x in i2cctl.cpp\n", address); 
 		}
-		return 1;
+		return -1;
 	}
 	
 	// loops through all the registers and sets them to the correct position in the 'result' integer
@@ -236,9 +322,9 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters,  uint32_t va
 		// retrieves the byte to be written from within the value variable and puts it in a temporary variable
 		uint32_t mask = 0x000000ff;
 		int offsets = numRegisters - (regIndex + 1);
-		uint8_t writeValue = (value << offsets * 8) & mask;
+		uint8_t writeValue = (value >> offsets * 8) & mask;
 		
-		printf("writing value %x obtained from a mask of %x on the original value %x\n", writeValue, mask, value);
+		//printf("writing value %x obtained from a mask of %x on the original value %x\n", writeValue, mask, value);
 
 		// sets the curReg temporary variable
 		uint8_t curReg = reg[regIndex];
@@ -254,7 +340,7 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters,  uint32_t va
 			}
 
 			releaseLock();
-			return 1;
+			return -1;
 		}
 	}
 

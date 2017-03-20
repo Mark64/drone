@@ -17,18 +17,21 @@ allpc: ./buildpc/Makefile
 	@ $(MAKE) -C buildpc
 
 ./build/Makefile: toolchain
-	@ (cd build > /dev/null 2>&1 && cmake -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE) ..)
+	@ (cd build > /dev/null 2>&1 && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE) ..)
 
 ./buildpc/Makefile:
 	@  ($(MKDIR) buildpc > /dev/null)
-	@  (cd buildpc > /dev/null 2>&1 && cmake ..)
+	@  (cd buildpc > /dev/null 2>&1 && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..)
 
 toolchain:
 	# installing the Raspberry Pi toolchain as defined by the "installRPIToolchain" script
-	@ (sh -x installRPIToolchain)
+	@ (sh installRPIToolchain)
 
 install: all
 	@ (scp build/$(EXECUTABLE_NAME) rocket:~ && ssh rocket "sudo cp ~/$(EXECUTABLE_NAME) /usr/local/bin")
+
+test: install
+	@ (ssh rocket "rocketTest")
 
 distclean:
 	@  ($(MKDIR) build > /dev/null)

@@ -2,8 +2,12 @@
 //
 // In the future, I may implement a cache for data storage so that data collection rates can be independent of its use
 
-#include "Vector.h"
 #include<stdint.h>
+
+#ifndef _VECTOR
+#include "Vector.h"
+#define _VECTOR
+#endif
 
 // this collects data from the accelerometer and returns the linear acceleration vector
 Vec3double accelerationVector();

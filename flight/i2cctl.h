@@ -20,12 +20,22 @@
 bool i2cSetBus(uint8_t bus);
 
 // read from the registers in the reg[] array at i2c address 'address'
-// can read multiple bytes at once (for instance, when there is an H and L register for 12 and 
+// can read multiple bytes at once (for instance, when there is an H and L register for 12 and
 //   16 bit values) or just read one byte if only 1 register is provided
 // Similar to 'i2cget -t bus address register'
 // Returns the result of the read operation as a single integer containing the value with 
 //   the most significant bit as the first bit of the first register in the reg array
+// if 0, either there was an error or the value really is 0
 uint32_t i2cRead(uint16_t address, uint8_t reg[], uint8_t numRegisters);
+
+// Slightly more efficient but also more specific version of i2cRead for dealing
+//   with sampling from the accelerometer and gyro
+// Theoretically improves performance by a slight amount
+// results are passed to the  array argument 'readResult'
+// readResults must be the size of 'numberRegisters/2' 
+//   and will contain return values for each group of 2 registers
+// returns -1 for failure and 0 for success 
+int i2cMultiWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults);
 
 // obviously a write is needed
 // similar to 'i2cset -y bus address register value'

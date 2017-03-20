@@ -85,21 +85,21 @@ Vec3double accelerationVector() {
 		initializeSensors();
 	}
 
-	// the hard-coded register addresses for the accelerometer
-	uint8_t accelXRegisters[2] = {0x29, 0x28};
-	uint8_t accelYRegisters[2] = {0x2b, 0x2a};
-	uint8_t accelZRegisters[2] = {0x2d, 0x2c};
+	// the hard-coded register addresses for the accelerometer (H,L,H,L,H,L) (x,y,z)
+	uint8_t accelRegisters[6] = {0x29, 0x28, 0x2b, 0x2a, 0x2d, 0x2c};
 	
 	// retrieve the raw sensor data from the registers
-	uint32_t rawXaccel = i2cRead(accelAddress, accelXRegisters, 2);
-	uint32_t rawYaccel = i2cRead(accelAddress, accelYRegisters, 2);
-	uint32_t rawZaccel = i2cRead(accelAddress, accelZRegisters, 2);
+	uint32_t accelValues[3] = {0,0,0};
+	int success = i2cMultiWordRead(accelAddress, accelRegisters, 6, accelValues);
+	if (success == -1) {
+		printf("Reading Values from accelerometer failed in Sensor Manager\n");
+	}
 
 	// proccess the sensor data and turn it into a user-friendly acceleration value
-	int xaccelInt = signedValue16bit(rawXaccel);
-	int yaccelInt = signedValue16bit(rawYaccel);
-	int zaccelInt = signedValue16bit(rawZaccel);
-
+	int xaccelInt = signedValue16bit(accelValues[0]);
+	int yaccelInt = signedValue16bit(accelValues[1]);
+	int zaccelInt = signedValue16bit(accelValues[2]);
+	
 	// convert the signed integer form into double form based on the configured accelerometer range
 	// scale is given as the +- g range for the accelerometer
 	// with a +- 16g scale and a 16 bit output integer, the raw value should be 
