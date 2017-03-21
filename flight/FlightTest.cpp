@@ -4,9 +4,12 @@
 
 #include<iostream>
 #include<stdio.h>
+#include<string.h>
 #include<stdint.h>
 #include<time.h>
 #include<unistd.h>
+#include<pthread.h>
+#include<math.h>
 
 #include "i2cctl.h"
 #include "SensorManager.h"
@@ -17,14 +20,14 @@ using namespace std;
 // gets the linear acceleration values for each axis and prints them to standard output
 void testAccel() {
 	Vec3double acc = accelerationVector();
-	cout << "Acceleration ";
+	cout << "acceleration ";
 	acc.description();
 }
 
 // gets the angular rotation values for each axis and prints them to standard output
 void testGyro() {
 	Vec3double gyro = rotationVector();
-	cout << "Rotation ";
+	cout << "rotation ";
 	gyro.description();
 }
 
@@ -91,6 +94,8 @@ int readsPerSecond() {
 }
 
 void testMotor(uint8_t address) {
+	printf("beginning test on motor %d\n", address);
+	printf("increasing motor speed\n");
 	// scale
 	int n = 10000;
 	// increment value
@@ -101,6 +106,7 @@ void testMotor(uint8_t address) {
 		//sleep(1);
 	}
 	// decreasing test
+	printf("decreasing motor speed\n");	
 	for (int i = n; i >= 0; i -= a) {
 		setMotorThrustPercentage(address, i * 1/((double)n));
 		//sleep(1);
@@ -110,8 +116,8 @@ void testMotor(uint8_t address) {
 }
 
 void manualMotorTest(uint8_t address) {
-	printf("\nInteractive Motor Tester\n");
-	printf("Enter a thrust value between 0 - 1 with 1 being maximum thrust\n");
+	printf("interactive motor tester\n");
+	printf("enter a thrust value between 0 - 1 with 1 being maximum thrust\n");
 	while (1) {
 		float percent = 0;
 		scanf("%f", &percent);
@@ -119,11 +125,71 @@ void manualMotorTest(uint8_t address) {
 	}
 }
 
-int main() {
-	testAccel();
-	testGyro();
+void * magAccelMotorTest(void *address) {
+	printf("orientation based motor tester\n");
+	printf("magnitude mode\n");
+	double maxAccel = 2.6;
+	double minAccel = 0.0;
+	double diff = maxAccel - minAccel;
+	uint8_t a = (uint8_t)((intptr_t)address);
+	while (1) {
+		usleep(500);
+		double mag = accelerationVector().magnitude();
+		double thrust = powf((mag - minAccel)/diff, 2);
+		//printf("%f, %f\n", mag, thrust);
+		setMotorThrustPercentage(a, thrust);
+	}
+}
+
+void magAccelTest() {
+	while (1) {
+		usleep(500000);
+		printf("acceleration magnitude: %f\n", accelerationVector().magnitude());
+	}
+}
+
+int main(int argc, char * argv[]) {
+	
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "a") == 0) {
+			testAccel();
+		}
+		else if (strcmp(argv[i], "g") == 0) {
+			testGyro();
+		}
+		else if (strcmp(argv[i], "t") == 0) {
+			testMotor((long int)argv[i+2]);
+		}
+		else if (strcmp(argv[i], "o") == 0) {
+			magAccelMotorTest(argv[i+2]);
+		}
+		else if (strcmp(argv[i], "i") == 0) {
+			manualMotorTest((intptr_t)argv[i+2]);
+			}
+
+	}
+	if (argc == 1) {
+		printf("enter arguments a, g, t <num>, o <num>, i <num>\n");
+	}
+	
+	//testAccel();
+	//testGyro();
 	//printf("%d rps\n", readsPerSecond());
-	testMotor(0);
-	manualMotorTest(0);
+	//testMotor(0);
+	//magAccelTest();
+	
+	//void * (*func)(void *) = &magAccelMotorTest;
+	//pthread_t accelThread;
+	//uint8_t argument = 0;
+	//pthread_create(&accelThread, NULL, func, &argument);
+	
+	//manualMotorTest(0);
 	return 0;
 }
+
+
+
+
+
+
+

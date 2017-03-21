@@ -14,9 +14,9 @@
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <string.h>
 #include <stdio.h>
 #include <sstream>
+#include <pthread.h>
 
 #include "i2cctl.h"
 
@@ -34,23 +34,27 @@ using namespace std;
 uint8_t _bus = 1;
 int _i2cFile = -1000;
 
-// this variable is set to 1 when the i2c device is being used to do a read or write operation
-// if this weren't set, programs running on a separate thread trying to write to i2c devices
+// this mutex is used to protect the i2c device from being used to do a read or write operations
+//   simulateously on another thread
+// if this weren't used, programs running on a separate thread trying to write to i2c devices
 //   could potentially interfere with and corrupt other concurrent operations
-// 1 = locked, 0 = open
-int _lock = 0;
+// the other _mutex_created variable allows the mutex to be initialized without a discrete initialize function
+// 1 = created, 0 = not created
+pthread_mutex_t _lock;
+int _mutex_created = 0;
 
 // this is a wait function and returns once the lock is removed to allow the i2c function to access the device
 void getLock() {
-	while(_lock) {
-		printf("thread collision in i2cctl getLock\n\n");
+	if (!_mutex_created) {
+		pthread_mutex_init(&_lock, NULL);
+		_mutex_created = 1;
 	}
-	_lock = 1;
+	pthread_mutex_lock(&_lock);
 }
 
 // this frees the lock to allow another function to use the i2c device
 void releaseLock() {
-	_lock = 0;
+	pthread_mutex_unlock(&_lock);
 }
 
 
@@ -95,6 +99,7 @@ void i2cClose() {
 
 	// releases the lock for the now useless i2c file
 	releaseLock();
+	pthread_mutex_destroy(&_lock);
 }
 
 

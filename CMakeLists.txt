@@ -19,4 +19,14 @@ add_subdirectory(flight)
 add_executable(rocketTest flight/FlightTest.cpp)
 target_link_libraries(rocketTest flight)
 
+# threading section
+find_package(Threads REQUIRED)
+if(THEADS_HAVE_PTHREAD_ARG)
+	target_compile_options(PUBLIC rocketTest "-pthread")
+endif()
+if (CMAKE_THREAD_LIBS_INIT)
+	target_link_libraries(rocketTest ${CMAKE_THREAD_LIBS_INIT})
+endif()
+
+
 set(CONFIGURED_ONCE TRUE CACHE INTERNAL "Apparently this shows CMake has been configured once ????")

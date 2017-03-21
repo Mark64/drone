@@ -42,10 +42,13 @@ class Vec3double {
 	//   the magnitude is between 0 and 1 for a vector used for the motor controller, can be a value in another range for a different use
 	static Vec3double vectorFromAnglesAndMagnitude(double angleFlat, double angleVertical, double magnitude);
 	
-
+	// gets the magnitude of the vector based on the components
+	double magnitude();
+	
 	// returns a string description of the vector
 	// useful for debuging
 	void description();
+
 };
 
 
