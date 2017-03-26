@@ -28,17 +28,57 @@ Vec3double :: Vec3double(double _x, double _y, double _z) {
 
 
 // creates a vector and calculates the values of its components based on the angles and magnitude passed in
-Vec3double Vec3double :: vectorFromAnglesAndMagnitude(double angleFlat, double angleVertical, double magnitude) {
-	double x = cos(radiansFromDegrees(angleFlat)) * magnitude;
-	double y = sin(radiansFromDegrees(angleFlat)) * magnitude;
-	double z = sin(radiansFromDegrees(angleVertical)) * magnitude;
+Vec3double Vec3double :: vectorFromAnglesAndMagnitude(double angleXY, double angleXZ, double magnitude) {
+	double x = cos(radiansFromDegrees(angleXZ)) * magnitude;
+	double y = sin(radiansFromDegrees(angleXY)) * magnitude;
+	double z = sin(radiansFromDegrees(angleXZ)) * magnitude;
 	return Vec3double(x, y, z);
 }
 
 // returns the magnitude of the vector
 double Vec3double :: magnitude() {
-	double magnitude = powf((powf(this->x, 2) + powf(this->y, 2) + powf(this->z, 2)), 0.5);
+	double magnitude = pow((pow(this->x, 2) + pow(this->y, 2) + pow(this->z, 2)), 0.5);
 	return magnitude;
+}
+
+// returns the xy plane angle
+double Vec3double :: angleXYPlane() {
+	// using atan (inverse tangent) to determine the angle
+	double tan = this->y / this->x;
+	double angle = atan(tan);
+	
+	// however, tan inverse only has a range of +-pi/2
+	// to correct for this, if statements must be used
+	// to see why this is necessary and why M_PI was used, consult a unit circle
+	if (angle > 0 && this->x < 0) {
+		angle += M_PI;
+	}
+	else if (angle < 0 && this->x < 0) {
+		angle -= M_PI;
+	}
+	
+	this->angleXY = degreesFromRadians(angle);
+	return this->angleXY;
+}
+
+// returns the xz plane angle
+double Vec3double :: angleXZPlane() {
+	// using atan (inverse tangent) to determine the angle
+	double tan = this->z / this->x;
+	double angle = atan(tan);
+	
+	// however, tan inverse only has a range of +-pi/2
+	// to correct for this, if statements must be used
+	// to see why this is necessary and why M_PI was used, consult a unit circle
+	if (angle > 0 && this->x < 0) {
+		angle += M_PI;
+	}
+	else if (angle < 0 && this->x < 0) {
+		angle -= M_PI;
+	}
+
+	this->angleXZ = degreesFromRadians(angle);
+	return this->angleXZ;
 }
 
 // useful function for debugging

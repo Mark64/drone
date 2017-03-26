@@ -17,4 +17,7 @@ double getMotorThrustPercentage(uint8_t motorNumber);
 void setMotorThrustPercentage(uint8_t motorNumber, double thrustPercentage);
 
 
+// calibrates the motor to the values defined in MotorController.cpp (_maxThrust and _minThrust)
+void calibrateMotor(uint8_t motorNumber);
+
 #endif

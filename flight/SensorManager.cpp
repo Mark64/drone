@@ -170,7 +170,8 @@ Vec3double rotationVector() {
 
 
 
-// compass heading retrieval
+// returns the vector describing the magnetic field
+// vector axises (no idea how to make axis plural) are the same as the accelerometer axises
 Vec3double magneticField() { 
 	return Vec3double(0,0,0);
 }

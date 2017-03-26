@@ -1,6 +1,8 @@
 // implementation for the motor controller functions
 
 #include<stdio.h>
+#include<unistd.h>
+#include<math.h>
 
 #include "MotorController.h"
 #include "PWMController.h"
@@ -23,9 +25,9 @@ uint8_t _armingStatus[] = {0, 0, 0, 0};
 // the arming, minimum, and maximum thrust values
 // the arming value is a PWM percentage that tells the ESC there is a proper PWM signal source attached
 // there are based on the ESC and will most likely vary with different devices
-double _armingThrust = 0.2;
-double _minimumThrust = 0.84;
-double _maximumThrust = 0.9999;
+double _armingThrust = 0.0600;
+double _minimumThrust = 0.1000 + 0.0100;
+double _maximumThrust = 0.6337;
 double _thrustRange = _maximumThrust - _minimumThrust;
 
 // NOTE: There is a special case for 0 since the minimum thrust value actually is slightly above the
@@ -35,6 +37,7 @@ double _thrustRange = _maximumThrust - _minimumThrust;
 void armMotor(uint8_t motorNumber) {
 	if (_armingStatus[motorNumber] == 0) {
 		setDutyPercent(_motorAddresses[motorNumber], _armingThrust);
+		usleep(50000);
 		_armingStatus[motorNumber] = 1;
 	}
 }
@@ -65,7 +68,35 @@ void setMotorThrustPercentage(uint8_t motorNumber, double thrustPercentage) {
 		pwmPercentage = _armingThrust;
 	}
 
+	// this protects against a value too large being passed in
+	if (thrustPercentage >= 1) {
+		pwmPercentage = _maximumThrust;
+	}
+
 	setDutyPercent(_motorAddresses[motorNumber], pwmPercentage);
+}
+
+// calibrates the motors
+void calibrateMotor(uint8_t motorNumber) {
+	double maxThrottle = _maximumThrust + 0.0263;
+	double minThrottle = 0.1000;
+	
+	printf("disconnect the ESCs (electronic speed controller) from power, then press enter to continue\n");
+	getchar();
+	
+	printf("calibrating motor %d\n", motorNumber);
+	printf("setting maximum throttle to %.2f%%\n", 100*maxThrottle);
+	setDutyPercent(motorNumber, maxThrottle);
+
+	usleep(500000);
+	
+	printf("\nreconnect the ESCs to power\nthen, within 1-2 seconds of the beeps, press enter to continue\n");
+	getchar();
+
+	printf("setting minimum throttle to %.2f%%\n", 100*minThrottle);
+	setDutyPercent(motorNumber, minThrottle);
+	
+	usleep(1000000);
 }
 
 

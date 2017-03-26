@@ -28,7 +28,7 @@ toolchain:
 	@ (sh installRPIToolchain)
 
 install: all
-	@ (scp build/$(EXECUTABLE_NAME) rocket:~ && ssh rocket "sudo cp ~/$(EXECUTABLE_NAME) /usr/local/bin")
+	@ (scp build/$(EXECUTABLE_NAME) rocket:~ && ssh rocket "sudo cp ~/$(EXECUTABLE_NAME) /usr/local/bin; rm ~/$(EXECUTABLE_NAME)")
 
 test: install
 	@ (ssh rocket "rocketTest")

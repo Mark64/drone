@@ -9,6 +9,7 @@
 #include "i2cctl.h"
 #include<stdio.h>
 #include<stdlib.h>
+#include<unistd.h>
 
 // i2c address of the PWM chip
 uint16_t pwmDeviceAddress = 0x40;
@@ -33,12 +34,28 @@ void initializePWMController() {
 	//   Prescale (sets the clock speed for PWM)
 	// the registers must be set in the order opposite to the list above 
 	
+	// in order to set the registers, the chip must be put into sleep
+	//   mode by turning off the internal oscilator
+	// this is done by setting bit 4 on the mode 1 register to 1
+	
+	// Mode 1 (set to sleep)
+	uint8_t mode1Register[] = {0x00};
+	uint8_t value = 0x10;
+	
+	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
+
+	for (int i = 0; i < 3 && success != 0; i++) {
+		printf("retrying mode 1 sleep register write in PWMController\n");
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
+	}
+	
+
 	// Prescale
 	uint8_t prescaleRegister[] = {0xfe};
-	uint8_t value = 0x09;
+	value = 0x16;
 	
-	int success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value);
-
+	success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value);
+	
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying prescale register write in PWMController\n");
 		success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value);
@@ -55,17 +72,17 @@ void initializePWMController() {
 		success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value);
 	}
 
-	// Mode 1
-	uint8_t mode1Register[] = {0x00};
-	value = 0x00;
+	// Mode 1 (wake from sleep)
+	value = 0x80;
 	
 	success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
-		printf("retrying mode 1 register write in PWMController\n");
+		printf("retrying mode 1 wake register write in PWMController\n");
 		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
 	}
-		
+	
+	usleep(500);
 	// done
 	initialized = 1;
 }
@@ -92,6 +109,14 @@ void setDutyPercent(uint8_t address, double percent) {
 	// the PWM chip obviously needs to be configured before values can be written
 	initializePWMController();
 	
+	// check the inputs and make sure they don't exceed passed in values
+	if (percent > 1) {
+		percent = 1;
+	}
+	if (percent < 0) {
+			percent = 0;
+	}
+
 	// the time the chip should wait each cycle before turning the pulse on
 	uint16_t onDelay = 0;
 	// the time the chip should wait each cycle before turning the pulse off

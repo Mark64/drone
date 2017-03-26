@@ -4,6 +4,7 @@
 
 #include<iostream>
 #include<stdio.h>
+#include<stdlib.h>
 #include<string.h>
 #include<stdint.h>
 #include<time.h>
@@ -12,6 +13,7 @@
 #include<math.h>
 
 #include "i2cctl.h"
+#include "PWMController.h"
 #include "SensorManager.h"
 #include "MotorController.h"
 
@@ -22,6 +24,7 @@ void testAccel() {
 	Vec3double acc = accelerationVector();
 	cout << "acceleration ";
 	acc.description();
+	
 }
 
 // gets the angular rotation values for each axis and prints them to standard output
@@ -115,17 +118,29 @@ void testMotor(uint8_t address) {
 
 }
 
-void manualMotorTest(uint8_t address) {
-	printf("interactive motor tester\n");
+void interactiveMotorTest(uint8_t address) {
+	printf("interactive motor tester\ntype 'x' to exit\n");
 	printf("enter a thrust value between 0 - 1 with 1 being maximum thrust\n");
 	while (1) {
-		float percent = 0;
-		scanf("%f", &percent);
+		char percentString[100];
+		scanf("%s", percentString);
+		if (!strcmp(percentString, "x")) {
+			setMotorThrustPercentage(address, 0);
+			return;
+		}
+		
+		double percent = atof(percentString);
+		percent *= percent < 0 ? 0 : 1;
+		
+		while (percent > 1) {
+			percent /= 10;
+		}
+		
 		setMotorThrustPercentage(address, percent);
 	}
 }
 
-void * magAccelMotorTest(void *address) {
+void magAccelMotorTest(uint8_t address) {
 	printf("orientation based motor tester\n");
 	printf("magnitude mode\n");
 	double maxAccel = 2.6;
@@ -143,8 +158,45 @@ void * magAccelMotorTest(void *address) {
 
 void magAccelTest() {
 	while (1) {
-		usleep(500000);
-		printf("acceleration magnitude: %f\n", accelerationVector().magnitude());
+		Vec3double acceleration = accelerationVector();
+		printf("acceleration magnitude: %f\n", acceleration.magnitude());
+		printf("XY angle: %f\n", acceleration.angleXYPlane());
+		printf("XZ angle %f\n", acceleration.angleXZPlane());
+		usleep(1000000);
+	}
+}
+
+void interactivePWMTest(uint8_t address) {
+	printf("interactive PWM tester\ntype 'x' to exit\n");
+	printf("enter a thrust value between 0 - 1 with 1 being maximum thrust\n");
+	while (1) {
+		char percentString[100];
+		scanf("%s", percentString);
+		if (!strcmp(percentString, "x")) {
+			setDutyPercent(address, 0);
+			return;
+		}
+		
+		double percent = atof(percentString);
+		percent *= percent < 0 ? 0 : 1;
+		
+		setDutyPercent(address, percent);
+	}
+}
+
+void calibrateMotors(uint8_t address[], int numMotors) {
+	double maxThrottle = 0.6600;
+	double minThrottle = 0.1000;
+	
+	for (int i = 0; i < numMotors; i++) {
+		calibrateMotor(address[i]);
+	}
+}
+
+
+void functionOverRange(void (*function)(uint8_t), uint8_t addresses[], uint8_t count) {
+	for (int i = 0; i < count; i++) {
+		function(addresses[i]);
 	}
 }
 
@@ -157,20 +209,35 @@ int main(int argc, char * argv[]) {
 		else if (strcmp(argv[i], "g") == 0) {
 			testGyro();
 		}
+		else if (strcmp(argv[i], "m") == 0) {
+			magAccelTest();
+		}
 		else if (strcmp(argv[i], "t") == 0) {
-			testMotor((long int)argv[i+2]);
+			testMotor(atoi(argv[i+1]));
 		}
 		else if (strcmp(argv[i], "o") == 0) {
-			magAccelMotorTest(argv[i+2]);
+			magAccelMotorTest(atoi(argv[i+1]));
 		}
 		else if (strcmp(argv[i], "i") == 0) {
-			manualMotorTest((intptr_t)argv[i+2]);
+			interactiveMotorTest(atoi(argv[i+1]));
+		}
+		else if (strcmp(argv[i], "p") == 0) {
+			interactivePWMTest(atoi(argv[i+1]));
+		}
+		else if (strcmp(argv[i], "c") == 0) {
+			uint8_t motors[20];
+			for (int j = i + 1; j < min(argc, 20); j++) {
+				motors[j-i-1] = atoi(argv[j]);
 			}
+			calibrateMotors(motors, min(argc - i - 1, 20));
+		}
 
 	}
 	if (argc == 1) {
-		printf("enter arguments a, g, t <num>, o <num>, i <num>\n");
+		printf("enter arguments a, m, g, c, p, t <num>, o <num>, i <num>\n");
 	}
+	
+
 	
 	//testAccel();
 	//testGyro();
