@@ -32,7 +32,10 @@ void initializePWMController() {
 	//   Mode 1 (first configuration register)
 	//   Mode 2 (second configuration register)
 	//   Prescale (sets the clock speed for PWM)
-	// the registers must be set in the order opposite to the list above 
+	// the registers can be set in any order, as long
+	//   as the device is first put to sleep by setting the
+	//   sleep bit on Mode 1, and ending with a write to wake
+	//   the device with a final write to Mode 1
 	
 	// in order to set the registers, the chip must be put into sleep
 	//   mode by turning off the internal oscilator
@@ -40,13 +43,13 @@ void initializePWMController() {
 	
 	// Mode 1 (set to sleep)
 	uint8_t mode1Register[] = {0x00};
-	uint8_t value = 0x10;
+	uint8_t value = 0x30;
 	
-	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
+	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 1 sleep register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
 	}
 	
 
@@ -54,32 +57,32 @@ void initializePWMController() {
 	uint8_t prescaleRegister[] = {0xfe};
 	value = 0x16;
 	
-	success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value);
+	success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, 0);
 	
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying prescale register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value);
+		success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, 0);
 	}
 	
 	// Mode 2
 	uint8_t mode2Register[] = {0x01};
 	value = 0x04;
 	
-	success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value);
+	success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, 0);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 2 register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value);
+		success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, 0);
 	}
 
 	// Mode 1 (wake from sleep)
-	value = 0x80;
+	value = 0xa0;
 	
-	success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
+	success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 1 wake register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value);
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
 	}
 	
 	usleep(500);
@@ -92,14 +95,17 @@ double getDutyPercent(uint8_t address) {
 	// read the on and off values to the corresponding registers
 	// the 4 * address sum is used to offset the register to read from
 	//   based on which PWM pin is being addressed
-	uint8_t onRegisters[] = {(uint8_t)(0x07 +(4 * address)), (uint8_t)(0x06 + (4 * address))};
-	uint8_t offRegisters[] = {(uint8_t)(0x09 + (4 * address)), (uint8_t)(0x08 + (4 * address))};
+	uint8_t onRegisters[] = {(uint8_t)(0x06 + (4 * address)), (uint8_t)(0x07 +(4 * address))};
+	uint8_t offRegisters[] = {(uint8_t)(0x08 + (4 * address)), (uint8_t)(0x09 + (4 * address))};
 
-	uint16_t on = i2cRead(pwmDeviceAddress, onRegisters, 2);
-	uint16_t off = i2cRead(pwmDeviceAddress, offRegisters, 2);
+	uint32_t on;
+	i2cWordRead(pwmDeviceAddress, onRegisters, 2, &on, 2, 1);
+	
+	uint32_t off;
+	i2cWordRead(pwmDeviceAddress, offRegisters, 2, &off, 2, 1);
 
 	// get it?
-	double duty = abs(off - on) / (double) 4096;
+	double duty = abs((int)off - (int)on) / (double) 4096;
 
 	return duty;
 }
@@ -122,6 +128,9 @@ void setDutyPercent(uint8_t address, double percent) {
 	// the time the chip should wait each cycle before turning the pulse off
 	uint16_t offDelay = (uint16_t)(percent * 4096) - 1;
 	
+	// in order to write value with one function call, combine values
+	uint32_t combinedDelayValue = (offDelay << 16) + onDelay;
+
 	// because the data sheet says to subtract 1 for proper function of the device,
 	//   I have to check that the offDelay did not underflow from 0 -1 and become 65535
 	if (offDelay > 4096) {
@@ -132,11 +141,14 @@ void setDutyPercent(uint8_t address, double percent) {
 	// write the on and off values to the corresponding registers
 	// the 4 * address sum is used to offset the register to write to
 	//   based on which PWM pin should be configured
-	uint8_t onRegisters[] = {(uint8_t)(0x07 +(4 * address)), (uint8_t)(0x06 + (4 * address))};
-	uint8_t offRegisters[] = {(uint8_t)(0x09 + (4 * address)), (uint8_t)(0x08 + (4 * address))};
+	uint8_t onLowRegister = (uint8_t)(0x06 + (4 * address));
+	uint8_t onHighRegister = (uint8_t)(0x07 + (4 * address));
+	uint8_t offLowRegister = (uint8_t)(0x08 + (4 * address));
+	uint8_t offHighRegister = (uint8_t)(0x09 + (4 * address));
+	
+	uint8_t registers[] = {onLowRegister, onHighRegister, offLowRegister, offHighRegister};
 
-	i2cWrite(pwmDeviceAddress, onRegisters, 2, onDelay);
-	i2cWrite(pwmDeviceAddress, offRegisters, 2, offDelay);
+	i2cWrite(pwmDeviceAddress, registers, 4, combinedDelayValue, AUTO_INCREMENT_ENABLED);
 }
 
 

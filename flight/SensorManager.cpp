@@ -1,12 +1,21 @@
 // implementation of the sensor manager header
 //
 // this is one of the few files that may have to be rewritten for each new drone
-// configuration values taken from the data sheet located at
+// configuration values taken from the data sheet located at the following URLs
+//
+// accelerometer and gyroscope
 // http://www.st.com/content/ccc/resource/technical/document/datasheet/a3/f5/4f/ae/8e/44/41/d7/DM00133076.pdf/files/DM00133076.pdf/jcr:content/translations/en.DM00133076.pdf
+// 
+// magnetometer
+//
+//
+// barometer
+// 
 //
 // by Mark Hill
 #include<iostream>
 #include<stdio.h>
+#include<unistd.h>
 
 #include "SensorManager.h"
 #include "i2cctl.h"
@@ -17,6 +26,8 @@ using namespace std;
 
 uint8_t accelAddress = 0x6b;
 uint8_t gyroAddress = 0x6b;
+uint8_t magAddress = 0x0e;
+uint8_t barometerAddress= 0x77;
 
 // this value is 0 when sensors have not been initialzed and is set to
 //   1 by the initialize sensors function, indicating sensors are configured
@@ -26,10 +37,20 @@ void initializeSensors() {
 	//
 	// accelerometer section
 	//
+		
+	// enabled auto increment on the register addresses
+	uint8_t autoIncrementRegister[1] = {0x12};
+	uint8_t autoIncrement = 0x04;
+	int incrementSuccess = i2cWrite(accelAddress, autoIncrementRegister, 1, autoIncrement, AUTO_INCREMENT_DISABLED);
+	
+	if (incrementSuccess != 0) {
+		printf("Failed to set auto increment for accelerometer\n");
+	}
+	
 	uint8_t accelConfigRegisters[1] = {0x10};
 	// sets the accelerometer to 1.6kHz mode with a range of +-16g
 	uint8_t accelConfig = 0x84;
-	int accelSuccess = i2cWrite(accelAddress, accelConfigRegisters, 1, accelConfig);
+	int accelSuccess = i2cWrite(accelAddress, accelConfigRegisters, 1, accelConfig, AUTO_INCREMENT_DISABLED);
 	
 	if (accelSuccess != 0) {
 		printf("Failed to set i2c configuration for accelerometer\n");
@@ -41,18 +62,25 @@ void initializeSensors() {
 	uint8_t gyroConfigRegister[1] = {0x11};
 	// sets the gyroscope to 1.6kHz mode with a scale of 2000 degrees per second
 	uint8_t gyroConfig = 0x8c;
-	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig);
+	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, AUTO_INCREMENT_DISABLED);
 
 	// sets the gyroscope high pass filter on and sets the filter cutoff frequency
 	//   to 2.07Hz with rounding enabled
 	gyroConfigRegister[0] = 0x16;
 	gyroConfig = 0x64;
-	gyroSuccess &= i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig);
+	gyroSuccess |= i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, AUTO_INCREMENT_DISABLED);
 
 	if (gyroSuccess != 0) {
 		printf("Failed to set i2c configuration for gyroscope\n");
 	}
+	
+	//
+	// magnetometer section
+	//
+	//uint8_t magConfigRegister[1] = {0x00};
+	//
 
+	usleep(500);
 	_sensorsAvailable = 1;
 }
 
@@ -85,12 +113,12 @@ Vec3double accelerationVector() {
 		initializeSensors();
 	}
 
-	// the hard-coded register addresses for the accelerometer (H,L,H,L,H,L) (x,y,z)
-	uint8_t accelRegisters[6] = {0x29, 0x28, 0x2b, 0x2a, 0x2d, 0x2c};
+	// the hard-coded register addresses for the accelerometer (L,H,L,H,L,H) (x,y,z)
+	uint8_t accelRegisters[6] = {0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d};
 	
 	// retrieve the raw sensor data from the registers
 	uint32_t accelValues[3] = {0,0,0};
-	int success = i2cMultiWordRead(accelAddress, accelRegisters, 6, accelValues);
+	int success = i2cWordRead(accelAddress, accelRegisters, 6, accelValues, WORD_16_BIT, AUTO_INCREMENT_ENABLED);
 	if (success == -1) {
 		printf("Reading Values from accelerometer failed in Sensor Manager\n");
 	}
@@ -132,20 +160,20 @@ Vec3double rotationVector() {
 		initializeSensors();
 	}
 
-	// the hard-coded register addresses for the gyroscope
-	uint8_t gyroXRegisters[2] = {0x23, 0x22};
-	uint8_t gyroYRegisters[2] = {0x25, 0x24};
-	uint8_t gyroZRegisters[2] = {0x27, 0x26};
+	// the hard-coded register addresses for the gyroscope (L,H,L,H,L,H) (x,y,z)
+	uint8_t gyroRegisters[6] = {0x22, 0x23, 0x24, 0x25, 0x26, 0x27};
 	
 	// retrieve the raw sensor data from the registers
-	uint32_t rawXrotation = i2cRead(gyroAddress, gyroXRegisters, 2);
-	uint32_t rawYrotation = i2cRead(gyroAddress, gyroYRegisters, 2);
-	uint32_t rawZrotation = i2cRead(gyroAddress, gyroZRegisters, 2);
-
+	uint32_t gyroValues[3] = {0,0,0};
+	int success = i2cWordRead(gyroAddress, gyroRegisters, 6, gyroValues, WORD_16_BIT, AUTO_INCREMENT_ENABLED);
+	if (success == -1) {
+		printf("Reading Values from gyroscope failed in Sensor Manager\n");
+	}
+	
 	// proccess the sensor data and turn it into a user-friendly rotation value
-	int xgyroInt = signedValue16bit(rawXrotation);
-	int ygyroInt = signedValue16bit(rawYrotation);
-	int zgyroInt = signedValue16bit(rawZrotation);
+	int xgyroInt = signedValue16bit(gyroValues[0]);
+	int ygyroInt = signedValue16bit(gyroValues[1]);
+	int zgyroInt = signedValue16bit(gyroValues[2]);
 
 	// convert the signed integer form into double form based on the configured gyroscope range
 	// scale is given as the +- dps range for the gyroscope
