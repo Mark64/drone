@@ -45,11 +45,11 @@ void initializePWMController() {
 	uint8_t mode1Register[] = {0x00};
 	uint8_t value = 0x30;
 	
-	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
+	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 1 sleep register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
 	}
 	
 
@@ -57,37 +57,42 @@ void initializePWMController() {
 	uint8_t prescaleRegister[] = {0xfe};
 	value = 0x16;
 	
-	success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, 0);
+	success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, AUTO_INCREMENT_ENABLED);
 	
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying prescale register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, 0);
+		success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, AUTO_INCREMENT_ENABLED);
 	}
 	
 	// Mode 2
 	uint8_t mode2Register[] = {0x01};
 	value = 0x04;
 	
-	success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, 0);
+	success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, AUTO_INCREMENT_ENABLED);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 2 register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, 0);
+		success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, AUTO_INCREMENT_ENABLED);
 	}
 
 	// Mode 1 (wake from sleep)
 	value = 0xa0;
 	
-	success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
+	success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 1 wake register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, 0);
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
 	}
 	
 	usleep(500);
 	// done
-	initialized = 1;
+	if (success == 0) {
+		initialized = 1;
+	}
+	else {
+		printf("failed to initialize PWM device\n");
+	}
 }
 
 // returns the duty cycle of the addressed PWM device as a value from 0 - 1
@@ -95,15 +100,18 @@ double getDutyPercent(uint8_t address) {
 	// read the on and off values to the corresponding registers
 	// the 4 * address sum is used to offset the register to read from
 	//   based on which PWM pin is being addressed
-	uint8_t onRegisters[] = {(uint8_t)(0x06 + (4 * address)), (uint8_t)(0x07 +(4 * address))};
-	uint8_t offRegisters[] = {(uint8_t)(0x08 + (4 * address)), (uint8_t)(0x09 + (4 * address))};
-
-	uint32_t on;
-	i2cWordRead(pwmDeviceAddress, onRegisters, 2, &on, 2, 1);
+	uint8_t onLowRegister = (uint8_t)(0x06 + (4 * address));
+	uint8_t onHighRegister = (uint8_t)(0x07 + (4 * address));
+	uint8_t offLowRegister = (uint8_t)(0x08 + (4 * address));
+	uint8_t offHighRegister = (uint8_t)(0x09 + (4 * address));
 	
-	uint32_t off;
-	i2cWordRead(pwmDeviceAddress, offRegisters, 2, &off, 2, 1);
+	uint8_t registers[] = {onLowRegister, onHighRegister, offLowRegister, offHighRegister};
 
+	uint32_t combinedDelay;
+	i2cWordRead(pwmDeviceAddress, registers, 4, &combinedDelay, WORD_16_BIT, AUTO_INCREMENT_ENABLED);
+	
+	uint32_t on = (0x0000ffff & combinedDelay);
+	uint32_t off = (0xffff0000 & combinedDelay);
 	// get it?
 	double duty = abs((int)off - (int)on) / (double) 4096;
 
@@ -124,9 +132,10 @@ void setDutyPercent(uint8_t address, double percent) {
 	}
 
 	// the time the chip should wait each cycle before turning the pulse on
-	uint16_t onDelay = 0;
+	// this is used to prevent power surging
+	uint16_t onDelay = 225 * address;
 	// the time the chip should wait each cycle before turning the pulse off
-	uint16_t offDelay = (uint16_t)(percent * 4096) - 1;
+	uint16_t offDelay = onDelay + (uint16_t)(percent * 4096) - 1;
 	
 	// in order to write value with one function call, combine values
 	uint32_t combinedDelayValue = (offDelay << 16) + onDelay;

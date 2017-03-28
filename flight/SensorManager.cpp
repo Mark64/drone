@@ -41,7 +41,7 @@ void initializeSensors() {
 	// enabled auto increment on the register addresses
 	uint8_t autoIncrementRegister[1] = {0x12};
 	uint8_t autoIncrement = 0x04;
-	int incrementSuccess = i2cWrite(accelAddress, autoIncrementRegister, 1, autoIncrement, AUTO_INCREMENT_DISABLED);
+	int incrementSuccess = i2cWrite(accelAddress, autoIncrementRegister, 1, autoIncrement, AUTO_INCREMENT_ENABLED);
 	
 	if (incrementSuccess != 0) {
 		printf("Failed to set auto increment for accelerometer\n");
@@ -50,7 +50,7 @@ void initializeSensors() {
 	uint8_t accelConfigRegisters[1] = {0x10};
 	// sets the accelerometer to 1.6kHz mode with a range of +-16g
 	uint8_t accelConfig = 0x84;
-	int accelSuccess = i2cWrite(accelAddress, accelConfigRegisters, 1, accelConfig, AUTO_INCREMENT_DISABLED);
+	int accelSuccess = i2cWrite(accelAddress, accelConfigRegisters, 1, accelConfig, AUTO_INCREMENT_ENABLED);
 	
 	if (accelSuccess != 0) {
 		printf("Failed to set i2c configuration for accelerometer\n");
@@ -62,13 +62,13 @@ void initializeSensors() {
 	uint8_t gyroConfigRegister[1] = {0x11};
 	// sets the gyroscope to 1.6kHz mode with a scale of 2000 degrees per second
 	uint8_t gyroConfig = 0x8c;
-	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, AUTO_INCREMENT_DISABLED);
+	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, AUTO_INCREMENT_ENABLED);
 
 	// sets the gyroscope high pass filter on and sets the filter cutoff frequency
 	//   to 2.07Hz with rounding enabled
 	gyroConfigRegister[0] = 0x16;
 	gyroConfig = 0x64;
-	gyroSuccess |= i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, AUTO_INCREMENT_DISABLED);
+	gyroSuccess |= i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, AUTO_INCREMENT_ENABLED);
 
 	if (gyroSuccess != 0) {
 		printf("Failed to set i2c configuration for gyroscope\n");

@@ -271,6 +271,7 @@ int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t 
 				}
 				if (autoIncrementEnabled == 1) {
 					printf("Read with autoIncrementEnabled flag set to 1 failed, so read exited prematurely");
+					releaseLock();
 					return -1;
 				}
 			}
@@ -335,7 +336,7 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t val
 		// retrieves the byte to be written from within the value variable and puts it in a temporary variable
 		uint32_t mask = 0x000000ff;
 		int offsets = regIndex;
-		uint8_t writeValue = (value >> offsets * 8) & mask;
+		uint8_t writeValue = (value >> (offsets * 8)) & mask;
 		
 		//printf("writing value %x obtained from a mask of %x on the original value %x\n", writeValue, mask, value);
 
@@ -348,12 +349,38 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t val
 		//   the variable 'writeValue', then check if the whole operation failed
 	
 		int writeSuccess = 0;
+	
+		// with autoincrement enabled, the entire write must be done in a single transaction
+		//   or else the register will be incremented before completion
+		if (autoIncrementEnabled == 1) {
+			uint8_t writeData[numRegisters + 1];
+			writeData[0] = curReg;
+			
+			// the 32 bit value must be split into single bytes
+			for (int i = 0; i < numRegisters; i++) {
+				writeData[i+1] = (value >> (i * 8)) & mask;
+			}
 
-		if (regIndex == 0 || autoIncrementEnabled == 0) {
+			writeSuccess = write(_i2cFile, &writeData, numRegisters + 1);		
+			
+			if (writeSuccess < 0) {
+				if (debug == 1) {
+					printf("Failed to write %x to device register %x at address %x in i2cctl.cpp\n", writeValue, curReg, address);
+				}
+	
+				releaseLock();
+				return -1;
+			}
+		
+			releaseLock();	
+			return 0;
+		}
+
+		else if (regIndex == 0) {
 			writeSuccess = write(_i2cFile, &curReg, 1);
 
 			// check for failure
-			if (writeSuccess < -1) {
+			if (writeSuccess < 0) {
 				printf("Failed to write to register %x at address %x in i2cctl.cpp\n", curReg, address);
 			}
 		}
