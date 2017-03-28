@@ -7,7 +7,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<stdint.h>
-#include<time.h>
+#include<sys/time.h>
 #include<unistd.h>
 #include<pthread.h>
 #include<math.h>
@@ -75,9 +75,11 @@ double averageAcceleration(int axis) {
 }
 
 // tests the number of i2c reads per second
-int readsPerSecond() {
+void readsPerSecond() {
 	int count = 0;
-	time_t startTime = time(NULL);
+	struct timeval startTime, endTime;
+	
+	gettimeofday(&startTime, NULL);
 	
 	//uint16_t address = 0x6b;
 	//uint8_t registers[] = {0x29, 0x28, 0x2b, 0x2a, 0x2d, 0x2c};
@@ -90,10 +92,12 @@ int readsPerSecond() {
 			count--;
 		}
 	}
+	
+	gettimeofday(&endTime, NULL);
+	
+	double diffTime = (double)((endTime.tv_sec * 1000000 + endTime.tv_usec) - (startTime.tv_sec * 1000000 + startTime.tv_usec)) / 1000000;
 
-	time_t endTime = time(NULL);
-
-	return  (count / difftime(endTime, startTime));
+	printf("%.2f reads per second\n", (double)(count) / diffTime);
 }
 
 void testMotor(uint8_t address) {
@@ -185,9 +189,6 @@ void interactivePWMTest(uint8_t address) {
 }
 
 void calibrateMotors(uint8_t address[], int numMotors) {
-	double maxThrottle = 0.6600;
-	double minThrottle = 0.1000;
-	
 	for (int i = 0; i < numMotors; i++) {
 		calibrateMotor(address[i]);
 	}
@@ -231,10 +232,13 @@ int main(int argc, char * argv[]) {
 			}
 			calibrateMotors(motors, min(argc - i - 1, 20));
 		}
+		else if (strcmp(argv[i], "r") == 0) {
+			readsPerSecond();
+		}
 
 	}
 	if (argc == 1) {
-		printf("enter arguments a, m, g, c, p, t <num>, o <num>, i <num>\n");
+		printf("enter arguments r, a, m, g, c, p, t <num>, o <num>, i <num>\n");
 	}
 	
 

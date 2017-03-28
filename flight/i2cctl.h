@@ -6,6 +6,16 @@
 #ifndef _i2cctl
 #define _i2cctl   
 
+// macros for i2cWrite and i2cWordRead
+// see the comments below for their use
+#define AUTO_INCREMENT_ENABLED 1
+#define AUTO_INCREMENT_DISABLED 0
+
+#define WORD_8_BIT 1
+#define WORD_16_BIT 2
+#define WORD_32_BIT 4
+#define WORD_64_BIT 8
+
 #include<stdint.h>
 
 
@@ -32,20 +42,30 @@ bool i2cSetBus(uint8_t bus);
 uint32_t i2cRead(uint16_t address, uint8_t reg[], uint8_t numRegisters);
 
 // Slightly more efficient but also more specific version of i2cRead for dealing
-//   with sampling from the accelerometer and gyro
+//   with sampling from the accelerometer and gyro or any device with support for
+//   multibyte read
 // Theoretically improves performance by a slight amount
 // results are passed to the  array argument 'readResult'
-// readResults must be the size of 'numberRegisters/2' 
-//   and will contain return values for each group of 2 registers
+// readResults must be the size of 'numberRegisters/bytesPerValue' 
+//   and will contain return values for each group of 'bytesPerValue' registers
+// wordSize is the number of bytes per value
+//   use the macros defined at the top, or use integer values for number of bytes
+// autoIncrementEnabled is a device specific flag that only applies if the device
+//   is configured to increment register number automatically after a read
+//   0 = disabled, 1 = enabled, but please use the macros instead of explicit values
 // returns -1 for failure and 0 for success 
-int i2cMultiWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults);
+int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults, uint8_t wordSize, uint8_t autoIncrementEnabled);
 
 // obviously a write is needed
 // similar to 'i2cset -y bus address register value'
-// writes in order, so the most significant bit of value get written to the most signficant
-//   bit of the first register in the reg array
+// writes the lower byte to the first register and the higher byte
+//   next, ending with the most significant byte
+// registers are written in order they appear in the array
+// autoIncrementEnabled is a device specific flag that only applies if the device
+//   is configured to increment register number automatically after a read
+//   0 = disabled, 1 = enabled
 // returns a 0 on success and -1 on failure
-int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value);
+int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value, uint8_t autoIncrementEnabled);
 
 
 

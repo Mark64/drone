@@ -77,7 +77,10 @@ void setMotorThrustPercentage(uint8_t motorNumber, double thrustPercentage) {
 }
 
 // calibrates the motors
+// goes one at a time so that error tones can be easily differentiated
 void calibrateMotor(uint8_t motorNumber) {
+	// the maxThrottle should be a little higher than max thrust so that the maximum motor
+	//   speed is not reached before 100%
 	double maxThrottle = _maximumThrust + 0.0263;
 	double minThrottle = 0.1000;
 	
