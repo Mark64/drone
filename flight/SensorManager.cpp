@@ -7,7 +7,7 @@
 // http://www.st.com/content/ccc/resource/technical/document/datasheet/a3/f5/4f/ae/8e/44/41/d7/DM00133076.pdf/files/DM00133076.pdf/jcr:content/translations/en.DM00133076.pdf
 // 
 // magnetometer
-//
+// 
 //
 // barometer
 // 
@@ -19,9 +19,6 @@
 
 #include "SensorManager.h"
 #include "i2cctl.h"
-
-
-using namespace std;
 
 
 uint8_t accelAddress = 0x6b;
@@ -77,28 +74,91 @@ void initializeSensors() {
 	//
 	// magnetometer section
 	//
-	//uint8_t magConfigRegister[1] = {0x00};
-	//
+	
+	// annoyingly, the device must be put to sleep when changing settings
+	// first, set the device to sleep
+	uint8_t magConfigRegister1 = 0x10;
+	uint8_t magSleepValue = 0x00;
 
-	usleep(500);
+	int magSuccess = i2cWrite(magAddress, &magConfigRegister1, 1, magSleepValue, AUTO_INCREMENT_ENABLED);
+
+	// now set the register values
+	uint8_t magConfigRegisters[2] = {0x10, 0x11};
+	uint16_t magConfig = 0x0920;
+
+	magSuccess |= i2cWrite(magAddress, magConfigRegisters, 2, magConfig, AUTO_INCREMENT_ENABLED);
+
+	// finally, wake up the magnetometer again
+	uint8_t magWakeValue = 0x09;
+
+	magSuccess |= i2cWrite(magAddress, &magConfigRegister1, 1, magWakeValue, AUTO_INCREMENT_ENABLED);
+
+	if (magSuccess != 0) {
+		printf("Failed to set i2c configuration for magnetometer\n");
+	}
+	
+	//
+	// barometer section
+	//
+	
+
+
+	// let power stabilize with a wait
+	usleep(50);
 	_sensorsAvailable = 1;
 }
 
 
+// set sensors to sleep mode
+void deinitializeSensors() {
+	//
+	// accelerometer and gyroscope section
+	//
+
+	// expanded for readability, local variables for the configRegisters
+	uint8_t accelConfigRegister = 0x10;
+	uint8_t gyroConfigRegister = 0x11;
+
+	uint8_t registers[] = {accelConfigRegister, gyroConfigRegister};
+
+	// since I want to turn the sensors off, I can just write straight zeros
+	uint16_t writeValue = 0x0000;
+
+	// perform the actual write and check for errors
+	int success = i2cWrite(accelAddress, registers, 2, writeValue, AUTO_INCREMENT_ENABLED);
+
+	if (success != 0) {
+		printf("Failed to deinitialize accelerometer and gyroscope sensors\n");
+	}
+
+	//
+	// magnetometer section
+	//
+	uint8_t magConfigRegisters[2] = {0x11, 0x12};
+	uint16_t magConfig = 0x0800;
+
+	int magSuccess = i2cWrite(magAddress, magConfigRegisters, 2, magConfig, AUTO_INCREMENT_ENABLED);
+
+	if (magSuccess != 0) {
+		printf("Failed to set i2c configuration for magnetometer\n");
+	}
+
+
+}
 
 
 // values are usually returned in two's complement
 // this returns the signed value from the raw two's complement input
-int16_t signedValue16bit(uint32_t twoComplement) {
+int32_t signedValue16bit(uint32_t _unsignedValue) {
 	// maximum positive value used for comparison
 	uint32_t maxPos = 32767;
 	// maximum value the number can take based on the number of bits
-	// in this case, we are using 16 bit values
+	// in this case, I am using 16 bit values
 	uint32_t maxNeg = 65536;
 	
 	// the value to be returned, assuming it is positive
-	int16_t result = twoComplement;
-	if (twoComplement > maxPos) {
+	int result = _unsignedValue;
+	if (_unsignedValue > maxPos) {
 		result = -1 * (maxNeg - result);
 	}
 
@@ -106,27 +166,67 @@ int16_t signedValue16bit(uint32_t twoComplement) {
 }
 
 
-// gets the linear acceleration from the gyroscope
-Vec3double accelerationVector() {	
-	// initializes the sensors if they have not been already
+// converts from a signed value into a two's complement value
+uint32_t unsignedValue16bit(int _signedValue) {
+	// maximum value the number can take based on the number of bits
+	// in this case, I am using 16 bit values
+	uint32_t maxNeg = 65536;
+	
+	uint32_t result = _signedValue;
+
+	if (_signedValue < 0) {
+		result = maxNeg - (-1 * _signedValue) + 1;
+	}
+
+	return result;
+}
+
+// this is a generalized function used by the acceleration vector,
+//   rotation vector, and magnetometer vector functions since they have
+//   similar hardware interfaces
+// place registers in x, y, z order with low before high registers
+// with the exception of the last argument, all arguments are for the i2c operation
+//   see the documentation in i2cctl.h for information on what the values do
+//   it only applies for 16 bit values right nowm set to 0 if using 32 bit or 8 bit sizes
+// the last argument, divisor, is used to correct for the fact that decimal values
+//   must be stored as integers by the registers, so the decimal point must be shifted
+Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t numRegisters, uint8_t bytesPerValue, uint8_t autoIncrementEnabled, uint8_t highByteFirst, double divisor) {
+	if (numRegisters / bytesPerValue > 3 || numRegisters / bytesPerValue <= 0) {
+		printf("Invalid register count for function threeAxisVector\n");
+		return Vec3double(0, 0, 0);
+	}
+	
+	// initialize the sensors if they haven't been already
 	if (!_sensorsAvailable) {
 		initializeSensors();
 	}
-
-	// the hard-coded register addresses for the accelerometer (L,H,L,H,L,H) (x,y,z)
-	uint8_t accelRegisters[6] = {0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d};
 	
-	// retrieve the raw sensor data from the registers
-	uint32_t accelValues[3] = {0,0,0};
-	int success = i2cWordRead(accelAddress, accelRegisters, 6, accelValues, WORD_16_BIT, AUTO_INCREMENT_ENABLED);
-	if (success == -1) {
-		printf("Reading Values from accelerometer failed in Sensor Manager\n");
+	// retrieves the sensor values based on the passed in arguments
+	uint32_t vectorValues[numRegisters / bytesPerValue];
+	int success = i2cWordRead(address, registers, numRegisters, vectorValues, bytesPerValue, highByteFirst, autoIncrementEnabled);
+
+	// check for failure and return an empty vector if so
+	if (success != 0) {
+		printf("Read failed in threeAxisVector for device %x", address);
+		return Vec3double(0, 0, 0);
 	}
 
-	// proccess the sensor data and turn it into a user-friendly acceleration value
-	int xaccelInt = signedValue16bit(accelValues[0]);
-	int yaccelInt = signedValue16bit(accelValues[1]);
-	int zaccelInt = signedValue16bit(accelValues[2]);
+	// convert the values from unsigned two's complement to a signed int
+	int rawx = signedValue16bit(vectorValues[0]);
+	int rawy = signedValue16bit(vectorValues[1]);
+	int rawz = signedValue16bit(vectorValues[2]);
+
+	double x = rawx / divisor;
+	double y = rawy / divisor;
+	double z = rawz / divisor;
+
+	return Vec3double(x, y, z);
+}
+
+// gets the linear acceleration from the gyroscope
+Vec3double accelerationVector() {	
+	// the hard-coded register addresses for the accelerometer (L,H,L,H,L,H) (x,y,z)
+	uint8_t accelRegisters[6] = {0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d};
 	
 	// convert the signed integer form into double form based on the configured accelerometer range
 	// scale is given as the +- g range for the accelerometer
@@ -139,15 +239,12 @@ Vec3double accelerationVector() {
 	//   determined for future adaptation
 	int divisor = 2048;
 
-	double xaccel = (double) xaccelInt / (double) divisor;
-	double yaccel = (double) yaccelInt / (double) divisor;
-	double zaccel = (double) zaccelInt / (double) divisor;
-
 	// create an even more user-friendly acceleration vector
-	Vec3double acceleration = Vec3double(xaccel, yaccel, zaccel);
+	Vec3double acceleration = threeAxisVector(accelAddress, accelRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, LOW_BYTE_FIRST, divisor);
 
 	return acceleration;
 }
+
 
 
 // returns the vector containing the angular rotation rate of the gyroscope
@@ -155,27 +252,9 @@ Vec3double accelerationVector() {
 //   and then change variable names and comments.  It's necessary boilerplate, 
 //   the sensors are on the same chip, and I don't care if you know
 Vec3double rotationVector() {	
-	// initializes the sensors if they have not been already
-	if (!_sensorsAvailable) {
-		initializeSensors();
-	}
-
 	// the hard-coded register addresses for the gyroscope (L,H,L,H,L,H) (x,y,z)
 	uint8_t gyroRegisters[6] = {0x22, 0x23, 0x24, 0x25, 0x26, 0x27};
 	
-	// retrieve the raw sensor data from the registers
-	uint32_t gyroValues[3] = {0,0,0};
-	int success = i2cWordRead(gyroAddress, gyroRegisters, 6, gyroValues, WORD_16_BIT, AUTO_INCREMENT_ENABLED);
-	if (success == -1) {
-		printf("Reading Values from gyroscope failed in Sensor Manager\n");
-	}
-	
-	// proccess the sensor data and turn it into a user-friendly rotation value
-	int xgyroInt = signedValue16bit(gyroValues[0]);
-	int ygyroInt = signedValue16bit(gyroValues[1]);
-	int zgyroInt = signedValue16bit(gyroValues[2]);
-
-	// convert the signed integer form into double form based on the configured gyroscope range
 	// scale is given as the +- dps range for the gyroscope
 	// with a +- 2000 dps scale and a 16 bit output integer, the raw value should be 
 	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - ceil(log2(2000)))
@@ -184,24 +263,40 @@ Vec3double rotationVector() {
 	//   two's complement effectively uses a bit to encode sign, so we lost a bit for the total amount
 	// for the sake of efficiency, this value is hardcoded, but it is important to know how it was 
 	//   determined for future adaptation
+	//
+	// looking back, I have no idea how this divisor became 32 when the math says 16
+	// dont ask me
 	int divisor = 32;
 
-	double xrotation = (double) xgyroInt / (double) divisor;
-	double yrotation = (double) ygyroInt / (double) divisor;
-	double zrotation = (double) zgyroInt / (double) divisor;
-
 	// create an even more user-friendly rotation vector
-	Vec3double rotation = Vec3double(xrotation, yrotation, zrotation);
+	Vec3double rotation = threeAxisVector(gyroAddress, gyroRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, LOW_BYTE_FIRST, divisor);
 
 	return rotation;
 }
 
 
-
 // returns the vector describing the magnetic field
 // vector axises (no idea how to make axis plural) are the same as the accelerometer axises
 Vec3double magneticField() { 
-	return Vec3double(0,0,0);
+	// the hard-coded register addresses for the magnetometer (L,H,L,H,L,H) (x,y,z)
+	uint8_t magRegisters[6] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+	
+	// scale is given as the +- micro telsas (uT) range for the magnetometer
+	// with a +- 1000uT scale and a 16 bit output integer, the raw value should be 
+	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - ceil(log2(1000)))
+	//   which equals 2^5 = 32
+	// however, experimentally, that gives the wrong value, but 512 does
+	//   dont ask me why, it just works
+	// why 15? well remember, the raw 16 bit register output has to be converted to a signed value
+	//   two's complement effectively uses a bit to encode sign, so we lost a bit for the total amount
+	// for the sake of efficiency, this value is hardcoded, but it is important to know how it was 
+	//   determined for future adaptation
+	int divisor = 512;
+
+	// create an even more user-friendly magnetic field vector
+	Vec3double magneticField = threeAxisVector(magAddress, magRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, HIGH_BYTE_FIRST, divisor);
+
+	return magneticField;
 }
 
 
@@ -209,6 +304,7 @@ Vec3double magneticField() {
 
 // gets the altitude relative to the take-off height
 double barometerAltitude() {
+	
 	return 0;
 }
 

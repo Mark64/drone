@@ -20,6 +20,7 @@
 
 #include "i2cctl.h"
 
+
 #ifdef RELEASE
 int debug = 0;
 #else
@@ -223,7 +224,7 @@ uint32_t i2cRead(uint16_t address, uint8_t reg[], uint8_t numRegisters) {
 // Slightly more efficient but highly specific version of i2cRead for dealing 
 //   with sampling from the accelerometer and gyro or any other device with
 //   multibyte words split across multiple registers
-int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults, uint8_t bytesPerValue, uint8_t autoIncrementEnabled) {
+int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults, uint8_t bytesPerValue, uint8_t highByteFirst, uint8_t autoIncrementEnabled) {
 	// set address of i2c device and then check if it failed
 	if (i2cSetAddress(address) != 0) {
 		if (debug == 1) {
@@ -301,7 +302,8 @@ int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t 
 			}
 
 			// offset the bits in the data variable so that it can be addedd to 'result'
-			int offsets = regIndex;
+			// switches the offset order (0, 1, 2 vs 2, 1, 0 for example) depending on the highByteFirst flag
+			int offsets = highByteFirst == HIGH_BYTE_FIRST ? bytesPerValue - regIndex - 1 : regIndex;
 			readResult <<= offsets * 8;
 			
 			result += readResult;
@@ -328,13 +330,45 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t val
 		return -1;
 	}
 	
-	// loops through all the registers and sets them to the correct position in the 'result' integer
-	// also needs the lock during this loop
+	// needs the lock during this loop
 	getLock();
 
+	// flag that stores the success return value for the write function
+	uint8_t writeSuccess = 0;
+
+	// this mask removes all the unnecessary bits
+	uint32_t mask = 0x000000ff;
+
+	// with autoincrement enabled, the entire write must be done in a single transaction
+	//   or else the register will be incremented before completion
+	if (autoIncrementEnabled == 1) {
+		uint8_t writeData[numRegisters + 1];
+		writeData[0] = reg[0];
+			
+		// the 32 bit value must be split into single bytes
+		for (int i = 0; i < numRegisters; i++) {
+			writeData[i+1] = (value >> (i * 8)) & mask;
+		}
+
+		writeSuccess = write(_i2cFile, &writeData, numRegisters + 1);		
+			
+		if (writeSuccess < 0) {
+			if (debug == 1) {
+				printf("Failed to write %x to device register %x at address %x in i2cctl.cpp\n", value, reg[0], address);
+			}
+	
+			releaseLock();
+			return -1;
+		}
+		
+		releaseLock();	
+		return 0;
+	}
+	
+	// loops through all the registers and sets them to the correct position in the 'result' integer
 	for (int regIndex = 0; regIndex < numRegisters; regIndex++) {
 		// retrieves the byte to be written from within the value variable and puts it in a temporary variable
-		uint32_t mask = 0x000000ff;
+		mask = 0x000000ff;
 		int offsets = regIndex;
 		uint8_t writeValue = (value >> (offsets * 8)) & mask;
 		
@@ -344,57 +378,15 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t val
 		uint8_t curReg = reg[regIndex];
 
 		// write the address of the register to be written (the first step in the i2c operation is actually to 
-		//   write to the slave the value of the i2c register you want to write to) unless it is a 
-		//   subsequent register and the autoIncrementEnabled flag is set to 1, then write the byte from 
+		//   write to the slave the value of the i2c register you want to write to), then write the byte from 
 		//   the variable 'writeValue', then check if the whole operation failed
-	
-		int writeSuccess = 0;
-	
-		// with autoincrement enabled, the entire write must be done in a single transaction
-		//   or else the register will be incremented before completion
-		if (autoIncrementEnabled == 1) {
-			uint8_t writeData[numRegisters + 1];
-			writeData[0] = curReg;
-			
-			// the 32 bit value must be split into single bytes
-			for (int i = 0; i < numRegisters; i++) {
-				writeData[i+1] = (value >> (i * 8)) & mask;
-			}
+		uint8_t writeData[] = {curReg, writeValue};
 
-			writeSuccess = write(_i2cFile, &writeData, numRegisters + 1);		
-			
-			if (writeSuccess < 0) {
-				if (debug == 1) {
-					printf("Failed to write %x to device register %x at address %x in i2cctl.cpp\n", writeValue, curReg, address);
-				}
-	
-				releaseLock();
-				return -1;
-			}
-		
-			releaseLock();	
-			return 0;
-		}
+		writeSuccess = write(_i2cFile, writeData, 1);
 
-		else if (regIndex == 0) {
-			writeSuccess = write(_i2cFile, &curReg, 1);
-
-			// check for failure
-			if (writeSuccess < 0) {
-				printf("Failed to write to register %x at address %x in i2cctl.cpp\n", curReg, address);
-			}
-		}
-		
-		// if address set was successful, write the actual value
-		if (writeSuccess >= 0) {
-			writeSuccess = write(_i2cFile, &writeValue, 1);
-		}
-
+		// check for failure
 		if (writeSuccess < 0) {
-			if (debug == 1) {
-				printf("Failed to write %x to device register %x at address %x in i2cctl.cpp\n", writeValue, curReg, address);
-			}
-
+			printf("Failed to write %x to register %x at address %x in i2cctl.cpp\n", writeValue, curReg, address);
 			releaseLock();
 			return -1;
 		}

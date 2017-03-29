@@ -5,8 +5,7 @@
 // Yes, this is terrible. No, I'm not gonna use a math library for software for an embedded device
 
 #include<math.h>
-#include<iostream>
-#include<sstream>
+#include<stdio.h>
 
 #include"Vector.h"
 
@@ -84,7 +83,7 @@ double Vec3double :: angleXZPlane() {
 // useful function for debugging
 // returns a description of the Vector's components
 void Vec3double :: description() {
-	std::cout << "vector\nx: " << this->x << "\ny: " << this->y << "\nz: " << this->z << "\n";
+	printf("vector\nmagnitude: %f\n  x: %.3f\n  y: %f\n  z: %f\n", this->magnitude(), this->x, this->y, this->z);
 }
 
 

@@ -84,14 +84,31 @@ void initializePWMController() {
 		printf("retrying mode 1 wake register write in PWMController\n");
 		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
 	}
-	
+
+	// must wait 500us for the internal oscillator on the PWM chip to stabilize as
+	//   per the datasheet recommendation	
 	usleep(500);
+	
 	// done
 	if (success == 0) {
 		initialized = 1;
 	}
 	else {
 		printf("failed to initialize PWM device\n");
+	}
+}
+
+// sets the PWM device to sleep by turning off the internal oscillator
+void deinitializePWMController() {
+	// Mode 1 (set to sleep)
+	uint8_t mode1Register[] = {0x00};
+	uint8_t value = 0x30;
+	
+	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
+
+	for (int i = 0; i < 3 && success != 0; i++) {
+		printf("sleep failed, retrying mode 1 sleep register write in PWMController\n");
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
 	}
 }
 
@@ -108,7 +125,7 @@ double getDutyPercent(uint8_t address) {
 	uint8_t registers[] = {onLowRegister, onHighRegister, offLowRegister, offHighRegister};
 
 	uint32_t combinedDelay;
-	i2cWordRead(pwmDeviceAddress, registers, 4, &combinedDelay, WORD_16_BIT, AUTO_INCREMENT_ENABLED);
+	i2cWordRead(pwmDeviceAddress, registers, 4, &combinedDelay, WORD_16_BIT, LOW_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 	
 	uint32_t on = (0x0000ffff & combinedDelay);
 	uint32_t off = (0xffff0000 & combinedDelay);

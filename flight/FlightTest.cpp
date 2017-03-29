@@ -201,6 +201,12 @@ void functionOverRange(void (*function)(uint8_t), uint8_t addresses[], uint8_t c
 	}
 }
 
+void testMagnetometer() {
+	Vec3double magField = magneticField();
+	printf("Magnetic Field ");
+	magField.description();
+}
+
 int main(int argc, char * argv[]) {
 	
 	for (int i = 1; i < argc; i++) {
@@ -212,6 +218,9 @@ int main(int argc, char * argv[]) {
 		}
 		else if (strcmp(argv[i], "m") == 0) {
 			magAccelTest();
+		}
+		else if (strcmp(argv[i], "mag") == 0) {
+			testMagnetometer();
 		}
 		else if (strcmp(argv[i], "t") == 0) {
 			testMotor(atoi(argv[i+1]));

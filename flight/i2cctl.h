@@ -16,6 +16,10 @@
 #define WORD_32_BIT 4
 #define WORD_64_BIT 8
 
+#define HIGH_BYTE_FIRST 1
+#define LOW_BYTE_FIRST 0
+
+
 #include<stdint.h>
 
 
@@ -50,11 +54,14 @@ uint32_t i2cRead(uint16_t address, uint8_t reg[], uint8_t numRegisters);
 //   and will contain return values for each group of 'bytesPerValue' registers
 // wordSize is the number of bytes per value
 //   use the macros defined at the top, or use integer values for number of bytes
+// highByteFirst is used to indicate whether the first register for each word contains
+//   the high byte or the low byte
+//   use the macros HIGH_BYTE_FIRST and LOW_BYTE_FIRST
 // autoIncrementEnabled is a device specific flag that only applies if the device
 //   is configured to increment register number automatically after a read
 //   0 = disabled, 1 = enabled, but please use the macros instead of explicit values
 // returns -1 for failure and 0 for success 
-int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults, uint8_t wordSize, uint8_t autoIncrementEnabled);
+int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t *readResults, uint8_t wordSize, uint8_t highByteFirst, uint8_t autoIncrementEnabled);
 
 // obviously a write is needed
 // similar to 'i2cset -y bus address register value'
