@@ -15,7 +15,6 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <sstream>
 #include <pthread.h>
 
 #include "i2cctl.h"
@@ -26,8 +25,6 @@ int debug = 0;
 #else
 int debug = 1;
 #endif
-
-using namespace std;
 
 
 // sorry for the global. Forgive me for I know not what I do
@@ -150,7 +147,7 @@ int i2cSetAddress(uint16_t address) {
 
 
 // set the bus used for i2c communication
-bool i2cSetBus(uint8_t bus) {
+int i2cSetBus(uint8_t bus) {
 	// obviously needs the lock so it gets sole access to the i2c device
 	getLock();
 
@@ -163,7 +160,7 @@ bool i2cSetBus(uint8_t bus) {
 	i2cInit();
 
 	// idc that this is unnecessary, I made it bool so itll return bool because I like bool
-	return (_bus == bus && _i2cFile >= 0);
+	return (_bus == bus && _i2cFile >= 0) ? 0 : -1;
 }
 
 

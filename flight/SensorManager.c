@@ -13,7 +13,6 @@
 // 
 //
 // by Mark Hill
-#include<iostream>
 #include<stdio.h>
 #include<unistd.h>
 
@@ -190,10 +189,10 @@ uint32_t unsignedValue16bit(int _signedValue) {
 //   it only applies for 16 bit values right nowm set to 0 if using 32 bit or 8 bit sizes
 // the last argument, divisor, is used to correct for the fact that decimal values
 //   must be stored as integers by the registers, so the decimal point must be shifted
-Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t numRegisters, uint8_t bytesPerValue, uint8_t autoIncrementEnabled, uint8_t highByteFirst, double divisor) {
+struct Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t numRegisters, uint8_t bytesPerValue, uint8_t autoIncrementEnabled, uint8_t highByteFirst, double divisor) {
 	if (numRegisters / bytesPerValue > 3 || numRegisters / bytesPerValue <= 0) {
 		printf("Invalid register count for function threeAxisVector\n");
-		return Vec3double(0, 0, 0);
+		return vectorFromComponents(0, 0, 0);
 	}
 	
 	// initialize the sensors if they haven't been already
@@ -208,7 +207,7 @@ Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t numRegi
 	// check for failure and return an empty vector if so
 	if (success != 0) {
 		printf("Read failed in threeAxisVector for device %x", address);
-		return Vec3double(0, 0, 0);
+		return vectorFromComponents(0, 0, 0);
 	}
 
 	// convert the values from unsigned two's complement to a signed int
@@ -220,11 +219,11 @@ Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t numRegi
 	double y = rawy / divisor;
 	double z = rawz / divisor;
 
-	return Vec3double(x, y, z);
+	return vectorFromComponents(x, y, z);
 }
 
 // gets the linear acceleration from the gyroscope
-Vec3double accelerationVector() {	
+struct Vec3double accelerationVector() {	
 	// the hard-coded register addresses for the accelerometer (L,H,L,H,L,H) (x,y,z)
 	uint8_t accelRegisters[6] = {0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d};
 	
@@ -240,7 +239,7 @@ Vec3double accelerationVector() {
 	int divisor = 2048;
 
 	// create an even more user-friendly acceleration vector
-	Vec3double acceleration = threeAxisVector(accelAddress, accelRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, LOW_BYTE_FIRST, divisor);
+	struct Vec3double acceleration = threeAxisVector(accelAddress, accelRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, LOW_BYTE_FIRST, divisor);
 
 	return acceleration;
 }
@@ -251,7 +250,7 @@ Vec3double accelerationVector() {
 // also if you were wondering, yes I did just copy paste the acceleration function
 //   and then change variable names and comments.  It's necessary boilerplate, 
 //   the sensors are on the same chip, and I don't care if you know
-Vec3double rotationVector() {	
+struct Vec3double rotationVector() {	
 	// the hard-coded register addresses for the gyroscope (L,H,L,H,L,H) (x,y,z)
 	uint8_t gyroRegisters[6] = {0x22, 0x23, 0x24, 0x25, 0x26, 0x27};
 	
@@ -269,7 +268,7 @@ Vec3double rotationVector() {
 	int divisor = 32;
 
 	// create an even more user-friendly rotation vector
-	Vec3double rotation = threeAxisVector(gyroAddress, gyroRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, LOW_BYTE_FIRST, divisor);
+	struct Vec3double rotation = threeAxisVector(gyroAddress, gyroRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, LOW_BYTE_FIRST, divisor);
 
 	return rotation;
 }
@@ -277,7 +276,7 @@ Vec3double rotationVector() {
 
 // returns the vector describing the magnetic field
 // vector axises (no idea how to make axis plural) are the same as the accelerometer axises
-Vec3double magneticField() { 
+struct Vec3double magneticField() { 
 	// the hard-coded register addresses for the magnetometer (L,H,L,H,L,H) (x,y,z)
 	uint8_t magRegisters[6] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 	
@@ -285,16 +284,16 @@ Vec3double magneticField() {
 	// with a +- 1000uT scale and a 16 bit output integer, the raw value should be 
 	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - ceil(log2(1000)))
 	//   which equals 2^5 = 32
-	// however, experimentally, that gives the wrong value, but 512 does
+	// however, experimentally, that gives the wrong value, but the number below does work
 	//   dont ask me why, it just works
 	// why 15? well remember, the raw 16 bit register output has to be converted to a signed value
 	//   two's complement effectively uses a bit to encode sign, so we lost a bit for the total amount
 	// for the sake of efficiency, this value is hardcoded, but it is important to know how it was 
 	//   determined for future adaptation
-	int divisor = 512;
+	int divisor = 1024;
 
 	// create an even more user-friendly magnetic field vector
-	Vec3double magneticField = threeAxisVector(magAddress, magRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, HIGH_BYTE_FIRST, divisor);
+	struct Vec3double magneticField = threeAxisVector(magAddress, magRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, HIGH_BYTE_FIRST, divisor);
 
 	return magneticField;
 }

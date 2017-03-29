@@ -1,4 +1,7 @@
-add_library(flight STATIC i2cctl.cpp SensorManager.cpp Vector.cpp PWMController.cpp MotorController.cpp)
+use_c99()
+add_library(flight STATIC i2cctl SensorManager Vector PWMController MotorController)
+
+
 
 
 

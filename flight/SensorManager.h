@@ -12,19 +12,19 @@
 
 // this collects data from the accelerometer and returns the linear acceleration vector
 // measured in units of 'g', which is acceleration at sea level or about 9.8m/s^2
-Vec3double accelerationVector();
+struct Vec3double accelerationVector();
 
 // in a similar manner to the accelerationVector() function, this 
 //   collects sensors data and returns a vector, but of the angular
 //   rotation rate of the gyroscope instead of the linear acceleration
 // measured in units of degrees per second
-Vec3double rotationVector();
+struct Vec3double rotationVector();
 
 // this collects data from the magnetometer and returns a vector containing 
 //   the magnetic field as determined by the magnetometer 
 // axises are the same as the axises of the accelerometer
 // measured in units of 
-Vec3double magneticField();
+struct Vec3double magneticField();
 
 // returns the GPS position of the drone as a 2d coordinate position
 

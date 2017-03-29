@@ -33,8 +33,8 @@
 // NOTE 2: if you run into issues with an improper i2c file or erros reading or writing, the i2c file
 //   may be corrupted.  To reset the i2c device file, run this function, which will call the private 
 //   function in i2cctl.cpp to reinitialize the i2c file
-// returns true if successful (it will always be successful)
-bool i2cSetBus(uint8_t bus);
+// returns 0 if successful (it will always be successful) and -1 on failure
+int i2cSetBus(uint8_t bus);
 
 // read from the registers in the reg[] array at i2c address 'address'
 // can read multiple bytes at once (for instance, when there is an H and L register for 12 and

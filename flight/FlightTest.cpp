@@ -2,7 +2,6 @@
 // It should be fully independent of the main function for the main
 //   program
 
-#include<iostream>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -12,26 +11,27 @@
 #include<pthread.h>
 #include<math.h>
 
+extern "C" {
 #include "i2cctl.h"
 #include "PWMController.h"
 #include "SensorManager.h"
-#include "MotorController.h"
+}
 
-using namespace std;
+#include "MotorController.h"
 
 // gets the linear acceleration values for each axis and prints them to standard output
 void testAccel() {
 	Vec3double acc = accelerationVector();
-	cout << "acceleration ";
-	acc.description();
+	printf("acceleration ");
+	printVector(&acc);
 	
 }
 
 // gets the angular rotation values for each axis and prints them to standard output
 void testGyro() {
 	Vec3double gyro = rotationVector();
-	cout << "rotation ";
-	gyro.description();
+	printf("rotation ");
+	printVector(&gyro);
 }
 
 // gets the average angular rotation value for the selected axis (0=x, 1=y, 2=z)
@@ -153,19 +153,31 @@ void magAccelMotorTest(uint8_t address) {
 	uint8_t a = (uint8_t)((intptr_t)address);
 	while (1) {
 		usleep(500);
-		double mag = accelerationVector().magnitude();
+		struct Vec3double acc = accelerationVector();
+		double mag = magnitude(&acc);
 		double thrust = powf((mag - minAccel)/diff, 2);
 		//printf("%f, %f\n", mag, thrust);
 		setMotorThrustPercentage(a, thrust);
 	}
 }
 
-void magAccelTest() {
+void sensorTest() {
 	while (1) {
-		Vec3double acceleration = accelerationVector();
-		printf("acceleration magnitude: %f\n", acceleration.magnitude());
-		printf("XY angle: %f\n", acceleration.angleXYPlane());
-		printf("XZ angle %f\n", acceleration.angleXZPlane());
+		struct Vec3double acceleration = accelerationVector();
+		struct Vec3double rotation = rotationVector();
+		struct Vec3double magField = magneticField();
+
+		printf("acceleration ");
+	       	printVector(&acceleration);
+		
+		printf("rotation ");
+		printVector(&rotation);
+
+		printf("magnetic field ");
+		printVector(&magField);
+
+		printf("altitude %.3f\n\n", barometerAltitude());
+
 		usleep(1000000);
 	}
 }
@@ -204,7 +216,7 @@ void functionOverRange(void (*function)(uint8_t), uint8_t addresses[], uint8_t c
 void testMagnetometer() {
 	Vec3double magField = magneticField();
 	printf("Magnetic Field ");
-	magField.description();
+	printVector(&magField);
 }
 
 int main(int argc, char * argv[]) {
@@ -216,10 +228,10 @@ int main(int argc, char * argv[]) {
 		else if (strcmp(argv[i], "g") == 0) {
 			testGyro();
 		}
-		else if (strcmp(argv[i], "m") == 0) {
-			magAccelTest();
+		else if (strcmp(argv[i], "s") == 0) {
+			sensorTest();
 		}
-		else if (strcmp(argv[i], "mag") == 0) {
+		else if (strcmp(argv[i], "m") == 0) {
 			testMagnetometer();
 		}
 		else if (strcmp(argv[i], "t") == 0) {
@@ -236,10 +248,11 @@ int main(int argc, char * argv[]) {
 		}
 		else if (strcmp(argv[i], "c") == 0) {
 			uint8_t motors[20];
-			for (int j = i + 1; j < min(argc, 20); j++) {
+			int minArguments = argc - 20 > 0 ? 20 : argc;
+			for (int j = i + 1; j < minArguments; j++) {
 				motors[j-i-1] = atoi(argv[j]);
 			}
-			calibrateMotors(motors, min(argc - i - 1, 20));
+			calibrateMotors(motors, minArguments - 1 - i);
 		}
 		else if (strcmp(argv[i], "r") == 0) {
 			readsPerSecond();
@@ -247,7 +260,7 @@ int main(int argc, char * argv[]) {
 
 	}
 	if (argc == 1) {
-		printf("enter arguments r, a, m, g, c, p, t <num>, o <num>, i <num>\n");
+		printf("enter arguments r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
 	}
 	
 
