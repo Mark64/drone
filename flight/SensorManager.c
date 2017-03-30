@@ -7,14 +7,15 @@
 // http://www.st.com/content/ccc/resource/technical/document/datasheet/a3/f5/4f/ae/8e/44/41/d7/DM00133076.pdf/files/DM00133076.pdf/jcr:content/translations/en.DM00133076.pdf
 // 
 // magnetometer
-// 
+// http://www.nxp.com/assets/documents/data/en/data-sheets/MAG3110.pdf
 //
 // barometer
-// 
+// https://cdn-shop.adafruit.com/datasheets/BST-BMP180-DS000-09.pdf
 //
 // by Mark Hill
 #include<stdio.h>
 #include<unistd.h>
+#include<math.h>
 
 #include "SensorManager.h"
 #include "i2cctl.h"
@@ -25,11 +26,24 @@ uint8_t gyroAddress = 0x6b;
 uint8_t magAddress = 0x0e;
 uint8_t barometerAddress= 0x77;
 
+// the barometer puts all the calculation responsibility on the user,
+//   so you have to retrieve and store the calibration values to calculate the
+//   pressure and temperature
+int32_t barometerCalibrationValues[11];
+
+// internal function used to retrieve barometer values
+void getBarometerParameters();
+
 // this value is 0 when sensors have not been initialzed and is set to
 //   1 by the initialize sensors function, indicating sensors are configured
 uint8_t _sensorsAvailable = 0;
 
 void initializeSensors() {
+	// no need to run if sensors already initialized
+	if (_sensorsAvailable == 1) {
+		return;
+	}
+	
 	//
 	// accelerometer section
 	//
@@ -99,8 +113,19 @@ void initializeSensors() {
 	//
 	// barometer section
 	//
-	
+	// sets the barometer to oversampling @ 8 times
+	/*uint8_t barometerConfigRegister = 0xf4;
+	uint8_t barometerConfig = 0xc0;
 
+	int barometerSuccess = i2cWrite(barometerAddress, &barometerConfigRegister, 1, barometerConfig, AUTO_INCREMENT_DISABLED);
+
+	if (barometerSuccess != 0) {
+		printf("Failed to set configuration for barometer\n");
+	}
+	else {
+		getBarometerParameters();
+	}*/
+	getBarometerParameters();
 
 	// let power stabilize with a wait
 	usleep(50);
@@ -139,10 +164,22 @@ void deinitializeSensors() {
 	int magSuccess = i2cWrite(magAddress, magConfigRegisters, 2, magConfig, AUTO_INCREMENT_ENABLED);
 
 	if (magSuccess != 0) {
-		printf("Failed to set i2c configuration for magnetometer\n");
+		printf("Failed to power down magnetometer\n");
 	}
 
+	//
+	// barometer section
+	//
+	// sets the barometer to oversampling @ 8 times
+	uint8_t barometerConfigRegister = 0xf4;
+	uint8_t barometerConfig = 0x00;
 
+	int barometerSuccess = i2cWrite(barometerAddress, &barometerConfigRegister, 1, barometerConfig, AUTO_INCREMENT_DISABLED);
+
+	if (barometerSuccess != 0) {
+		printf("Failed to power down barometer\n");
+	}
+	
 }
 
 
@@ -158,7 +195,7 @@ int32_t signedValue16bit(uint32_t _unsignedValue) {
 	// the value to be returned, assuming it is positive
 	int result = _unsignedValue;
 	if (_unsignedValue > maxPos) {
-		result = -1 * (maxNeg - result);
+		result = -1 * (int32_t)(maxNeg - result);
 	}
 
 	return result;
@@ -195,11 +232,6 @@ struct Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t 
 		return vectorFromComponents(0, 0, 0);
 	}
 	
-	// initialize the sensors if they haven't been already
-	if (!_sensorsAvailable) {
-		initializeSensors();
-	}
-	
 	// retrieves the sensor values based on the passed in arguments
 	uint32_t vectorValues[numRegisters / bytesPerValue];
 	int success = i2cWordRead(address, registers, numRegisters, vectorValues, bytesPerValue, highByteFirst, autoIncrementEnabled);
@@ -224,6 +256,9 @@ struct Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t 
 
 // gets the linear acceleration from the gyroscope
 struct Vec3double accelerationVector() {	
+	// initialize the sensors before using them
+	initializeSensors();
+	
 	// the hard-coded register addresses for the accelerometer (L,H,L,H,L,H) (x,y,z)
 	uint8_t accelRegisters[6] = {0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d};
 	
@@ -251,6 +286,9 @@ struct Vec3double accelerationVector() {
 //   and then change variable names and comments.  It's necessary boilerplate, 
 //   the sensors are on the same chip, and I don't care if you know
 struct Vec3double rotationVector() {	
+	// initialize the sensors before using them
+	initializeSensors();
+	
 	// the hard-coded register addresses for the gyroscope (L,H,L,H,L,H) (x,y,z)
 	uint8_t gyroRegisters[6] = {0x22, 0x23, 0x24, 0x25, 0x26, 0x27};
 	
@@ -276,7 +314,10 @@ struct Vec3double rotationVector() {
 
 // returns the vector describing the magnetic field
 // vector axises (no idea how to make axis plural) are the same as the accelerometer axises
-struct Vec3double magneticField() { 
+struct Vec3double magneticField() {
+	// initialize the sensors before using them
+	initializeSensors();
+
 	// the hard-coded register addresses for the magnetometer (L,H,L,H,L,H) (x,y,z)
 	uint8_t magRegisters[6] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 	
@@ -290,7 +331,7 @@ struct Vec3double magneticField() {
 	//   two's complement effectively uses a bit to encode sign, so we lost a bit for the total amount
 	// for the sake of efficiency, this value is hardcoded, but it is important to know how it was 
 	//   determined for future adaptation
-	int divisor = 1024;
+	int divisor = 32;
 
 	// create an even more user-friendly magnetic field vector
 	struct Vec3double magneticField = threeAxisVector(magAddress, magRegisters, 6, WORD_16_BIT, AUTO_INCREMENT_ENABLED, HIGH_BYTE_FIRST, divisor);
@@ -298,14 +339,138 @@ struct Vec3double magneticField() {
 	return magneticField;
 }
 
+// retrieves the default parameters for the barometer as defined in the eeprom registers and
+//   stores them in the barometerCalibrationValues array in the order they appear on the data sheet
+void getBarometerParameters() {
+	// loop through the 11 values and get the register contents
+	// convert to signed values if needed
+	for (uint8_t i = 0; i < 11; i++) {
+		// the registers come in pairs of two
+		// they are MSB (most significant byte) first
+		uint8_t registers[2] = {(uint8_t)(0xaa + (2 * i)), (uint8_t)(0xab + (2 * i))};
+		uint32_t readValue;
+
+		int success = i2cWordRead(barometerAddress, registers, 2, &readValue, WORD_16_BIT, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
+
+		if (success != 0) {
+			printf("reading eeprom data from registers %x and %x failed\n", registers[0], registers[1]);
+		}
+		else {
+			int32_t signedReadValue;
+
+			if (i < 3 || i > 5) {
+				signedReadValue = signedValue16bit(readValue);
+			}
+			else {
+				signedReadValue = readValue;
+			}
+
+			barometerCalibrationValues[i] = signedReadValue;
+		}
+	}
+}
 
 
+// helper function to get the barometer uncompensatedtemperature
+uint32_t uncompensatedTemperature() {
+	uint8_t barometerRegister = 0xf4;
+	int success = i2cWrite(barometerAddress, &barometerRegister, 1, 0x2e, AUTO_INCREMENT_ENABLED);
+	
+	// datasheet suggests waiting 4.5 seconds for the value to be obtained
+	usleep(4500);
+
+	uint8_t dataRegisters[] = {0xf6, 0xf7};
+	uint32_t temperature;
+	success |= i2cWordRead(barometerAddress, dataRegisters, 2, &temperature, WORD_16_BIT, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
+
+	if (success != 0) {
+		printf("barometer temperature read failed");
+	}
+
+	return temperature;
+}
+
+// helper function to get the barometer uncompensated pressure
+uint32_t uncompensatedPressure() {
+	uint8_t sampleRate = 3;
+
+	uint8_t barometerRegister = 0xf4;
+	int success = i2cWrite(barometerAddress, &barometerRegister, 1, 0xf4, AUTO_INCREMENT_ENABLED);
+	
+	// datasheet suggests a 25.5ms waiting period for a sample rate of 3
+	usleep(25500);
+
+	uint8_t dataRegisters[] = {0xf6, 0xf7, 0xf8};
+	uint32_t pressure;
+	success |= i2cWordRead(barometerAddress, dataRegisters, 3, &pressure, WORD_24_BIT, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
+	printf("%d pressure\n", pressure);
+	if (success != 0) {
+		printf("barometer pressure read failed");
+	}
+	// the bits need to be shifted down as per the datasheet
+	else {
+		//pressure <<= 8;
+		pressure >>= (8 - sampleRate);
+	}
+
+	return pressure;
+}
 
 // gets the altitude relative to the take-off height
 double barometerAltitude() {
+	// initialize the sensors before using data
+	initializeSensors();
 	
-	return 0;
+	uint8_t sampleRate = 3;
+
+	uint32_t uncompPressure = uncompensatedPressure();
+	uint32_t uncompTemperature = uncompensatedTemperature();
+
+	// the following calculations are taken from the datasheet
+	int32_t X1 = (uncompTemperature - barometerCalibrationValues[5]) * barometerCalibrationValues[4] / 32768;
+	int32_t X2 = (barometerCalibrationValues[9] * 2048) / (X1 + barometerCalibrationValues[10]);
+	int32_t B5 = X1 + X2;
+	int32_t trueTemperature = (B5 + 8) / 16;
+
+	int32_t B6 = B5 - 4000;
+	X1 = (barometerCalibrationValues[7] * (B6 * B6 / 4096)) / 2048;
+	X2 = barometerCalibrationValues[1] * B6 / 2048;
+	int32_t X3 = X1 + X2;
+	int32_t B3 = (((barometerCalibrationValues[0] * 4 + X3) << sampleRate) + 2) / 4;
+	X1 = barometerCalibrationValues[2] * B6 / 8192;
+	X2 = (barometerCalibrationValues[6] * (B6 * B6 / 4096)) / 65536;
+	X3 = (X1 + X2 + 2) / 4;
+	uint32_t B4 = barometerCalibrationValues[3] * (uint32_t)(X3 + 32768) / 32768;
+	uint32_t B7 = ((uint32_t)uncompPressure - B3) * (50000 >> sampleRate);
+	int32_t p;
+	if (B7 < 0x80000000) {
+		p = (B7 * 2) / B4;
+	}
+	else {
+		p = (B7 / B4) * 2;
+	}
+
+	X1 = (p / 256) * (p / 256);
+	X1 = (X1 * 3038) / 65536;
+	X2 = (-7357 * p) / 65536;
+
+	int32_t truePressure = p + (X1 + X2 + 3791) / 16;
+	printf("p %d, t %d\n", truePressure, trueTemperature);
+	
+	// now with the pressure and temperature calculated, we can used the formula
+	//   provided in the data sheet for obtaining altitude based on the international
+	//   barometric formula
+	
+	// pressure in pascals
+	double seaLevelPressure = 101325;
+	double altitude = 44330 * (1 - pow(((double)truePressure)/seaLevelPressure, (1.0/5.255)));
+
+	return altitude;
 }
+
+
+
+
 
 
 

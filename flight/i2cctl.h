@@ -13,6 +13,7 @@
 
 #define WORD_8_BIT 1
 #define WORD_16_BIT 2
+#define WORD_24_BIT 3
 #define WORD_32_BIT 4
 #define WORD_64_BIT 8
 

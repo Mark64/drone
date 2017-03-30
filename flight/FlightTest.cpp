@@ -219,6 +219,16 @@ void testMagnetometer() {
 	printVector(&magField);
 }
 
+void testBarometer() {
+	double altitude = 0;
+	int n = 100;
+	for (int i = 0; i < n; i++) {
+		altitude += barometerAltitude();
+	}
+	altitude /= n;
+	printf("altitude %.3f meters\n", altitude);
+}
+
 int main(int argc, char * argv[]) {
 	
 	for (int i = 1; i < argc; i++) {
@@ -256,6 +266,9 @@ int main(int argc, char * argv[]) {
 		}
 		else if (strcmp(argv[i], "r") == 0) {
 			readsPerSecond();
+		}
+		else if (strcmp(argv[i], "b") == 0) {
+			testBarometer();
 		}
 
 	}

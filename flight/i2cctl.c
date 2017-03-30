@@ -276,9 +276,11 @@ int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t 
 			// this means register address setting was successful
 			// this is where the data is actually read and the success is checked
 			else {
-				uint32_t readData = 0;
 				uint8_t numBytes = autoIncrementEnabled == 1 ? bytesPerValue : 1;
-				if (read(_i2cFile, &readData, numBytes) < 0) {
+				uint8_t readArray[numBytes];
+				// array stores the data, but readData is the actual values correct for MSB or LSB first
+				uint32_t readData = 0;
+				if (read(_i2cFile, readArray, numBytes) < 0) {
 					if (debug == 1) {
 						printf("Failed to read from register %x at address %x in i2cctl.cpp\n", curReg, address);
 					}
@@ -286,8 +288,15 @@ int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t 
 					printf("failed to read sample from register %x\n", curReg);
 				}
 			
-				// if the read was actually successful, then add the result
+				// if the read was actually successful, correct the bit order (MSB first means the bytes
+				//   are currently out of order), then add the result
 				else {
+					for (int i = 0; i < bytesPerValue; i++) {
+						uint32_t temp = readArray[i];
+						uint8_t numShifts = (highByteFirst == HIGH_BYTE_FIRST) ? (8 * (bytesPerValue - i - 1)) : (8 * i);
+						readData += (temp << numShifts);
+					}
+
 					readResult += readData;
 				}
 			}
