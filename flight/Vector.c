@@ -46,7 +46,11 @@ double magnitude(struct Vec3double *vector) {
 // returns the xy plane angle
 double angleXYPlane(struct Vec3double *vector) {
 	// using atan (inverse tangent) to determine the angle
-	double tan = vector->y / vector->x;
+	//   of course, don't divide by zero
+	double tan = M_PI/2;
+	if (vector->x != 0) {
+		tan = vector->y / vector->x;
+	}
 	double angle = atan(tan);
 	
 	// however, tan inverse only has a range of +-pi/2
@@ -66,7 +70,11 @@ double angleXYPlane(struct Vec3double *vector) {
 // returns the xz plane angle
 double angleXZPlane(struct Vec3double *vector) {
 	// using atan (inverse tangent) to determine the angle
-	double tan = vector->z / vector->x;
+	//   of course, don't divide by zero
+	double tan = M_PI/2;
+	if (vector->x != 0) {
+		tan = vector->z / vector->x;
+	}
 	double angle = atan(tan);
 	
 	// however, tan inverse only has a range of +-pi/2
