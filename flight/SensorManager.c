@@ -403,7 +403,6 @@ uint32_t uncompensatedPressure() {
 	uint8_t dataRegisters[] = {0xf6, 0xf7, 0xf8};
 	uint32_t pressure;
 	success |= i2cWordRead(barometerAddress, dataRegisters, 3, &pressure, WORD_24_BIT, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
-	printf("%d pressure\n", pressure);
 	if (success != 0) {
 		printf("barometer pressure read failed");
 	}
@@ -430,7 +429,7 @@ double barometerAltitude() {
 	int32_t X1 = (uncompTemperature - barometerCalibrationValues[5]) * barometerCalibrationValues[4] / 32768;
 	int32_t X2 = (barometerCalibrationValues[9] * 2048) / (X1 + barometerCalibrationValues[10]);
 	int32_t B5 = X1 + X2;
-	int32_t trueTemperature = (B5 + 8) / 16;
+	//int32_t trueTemperature = (B5 + 8) / 16;
 
 	int32_t B6 = B5 - 4000;
 	X1 = (barometerCalibrationValues[7] * (B6 * B6 / 4096)) / 2048;
@@ -455,7 +454,6 @@ double barometerAltitude() {
 	X2 = (-7357 * p) / 65536;
 
 	int32_t truePressure = p + (X1 + X2 + 3791) / 16;
-	printf("p %d, t %d\n", truePressure, trueTemperature);
 	
 	// now with the pressure and temperature calculated, we can used the formula
 	//   provided in the data sheet for obtaining altitude based on the international

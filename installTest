@@ -1,0 +1,16 @@
+#!/bin/bash
+
+DEVICE_NAME=rocket
+EXECUTABLE=rocketTest
+LIBRARIES=lib*.so
+
+# this script copies and installs the software to the drone
+scp ./build/$EXECUTABLE $DEVICE_NAME:~
+scp ./build/flight/lib*.so $DEVICE_NAME:~
+ssh $DEVICE_NAME \
+	"sudo cp $EXECUTABLE /usr/local/bin; \
+	 sudo cp $LIBRARIES /usr/lib;        "
+
+
+
+

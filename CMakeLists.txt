@@ -18,6 +18,7 @@ macro(use_c99)
 	endif()
 endmacro(use_c99)
 
+use_c99()
 
 # stop the stupid insource builds
 if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR} )
@@ -27,12 +28,14 @@ endif()
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/flight")
 
+# runs CMake on the subdirectory flight
 add_subdirectory(flight)
 
+# create executable
 add_executable(rocketTest flight/FlightTest.cpp)
-target_link_libraries(rocketTest flight)
 
-use_c99()
+# these libraries are built from this project's source tree and allow the project to be easily extended
+target_link_libraries(rocketTest avionics computation motion)
 
 # threading section
 find_package(Threads REQUIRED)

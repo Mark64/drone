@@ -1,5 +1,12 @@
-use_c99()
-add_library(flight STATIC i2cctl SensorManager Vector PWMController MotorController)
+add_library(computation SHARED Vector)
+
+add_library(avionics SHARED i2cctl SensorManager PWMController)
+target_link_libraries(avionics computation)
+
+add_library(motion SHARED MotorController)
+target_link_libraries(motion avionics)
+
+
 
 
 

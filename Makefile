@@ -9,6 +9,7 @@ MKDIR := mkdir -p
 EXECUTABLE_NAME := rocketTest
 
 CMAKE_TOOLCHAIN_FILE := toolchainRaspberryPi0.cmake
+INSTALL_TEST := installTest
 
 all: ./build/Makefile
 	@ $(MAKE) -C build
@@ -28,7 +29,8 @@ toolchain:
 	@ (sh installRPIToolchain)
 
 install: all
-	@ (scp build/$(EXECUTABLE_NAME) rocket:~ && ssh rocket "sudo cp ~/$(EXECUTABLE_NAME) /usr/local/bin; rm ~/$(EXECUTABLE_NAME)")
+	# copying executable and libraries to drone
+	@ (sh $(INSTALL_TEST))
 
 test: install
 	@ (ssh rocket "rocketTest")

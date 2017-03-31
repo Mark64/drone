@@ -98,6 +98,7 @@ void i2cClose() {
 	// releases the lock for the now useless i2c file
 	releaseLock();
 	pthread_mutex_destroy(&_lock);
+	_mutex_created = 0;
 }
 
 
@@ -113,7 +114,7 @@ int i2cSetAddress(uint16_t address) {
 	getLock();
 
 	// set ten bit address mode
-	uint8_t isTenBit = (address - 128 > 0) ? 1 : 0;
+	uint8_t isTenBit = (address - 127 > 0) ? 1 : 0;
 	int set10Bit = ioctl(_i2cFile, I2C_TENBIT, isTenBit);
 	
 	// this means an error has occured
@@ -148,6 +149,9 @@ int i2cSetAddress(uint16_t address) {
 
 // set the bus used for i2c communication
 int i2cSetBus(uint8_t bus) {
+	// prevent orphaned files
+	i2cClose();
+
 	// obviously needs the lock so it gets sole access to the i2c device
 	getLock();
 
@@ -306,13 +310,14 @@ int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t 
 				result += readResult;
 				break;
 			}
-
-			// offset the bits in the data variable so that it can be addedd to 'result'
-			// switches the offset order (0, 1, 2 vs 2, 1, 0 for example) depending on the highByteFirst flag
-			int offsets = highByteFirst == HIGH_BYTE_FIRST ? bytesPerValue - regIndex - 1 : regIndex;
-			readResult <<= offsets * 8;
+			else {
+				// offset the bits in the data variable so that it can be addedd to 'result'
+				// switches the offset order (0, 1, 2 vs 2, 1, 0 for example) depending on the highByteFirst flag
+				int offsets = highByteFirst == HIGH_BYTE_FIRST ? bytesPerValue - regIndex - 1 : regIndex;
+				readResult <<= offsets * 8;
 			
-			result += readResult;
+				result += readResult;
+			}
 		}
 		
 		// add the read value into the array to be returned
@@ -370,7 +375,7 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t val
 		releaseLock();	
 		return 0;
 	}
-	
+	// else
 	// loops through all the registers and sets them to the correct position in the 'result' integer
 	for (int regIndex = 0; regIndex < numRegisters; regIndex++) {
 		// retrieves the byte to be written from within the value variable and puts it in a temporary variable
