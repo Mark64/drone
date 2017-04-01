@@ -11,17 +11,15 @@
 #include<pthread.h>
 #include<math.h>
 
-extern "C" {
 #include "i2cctl.h"
 #include "PWMController.h"
 #include "SensorManager.h"
-}
-
 #include "MotorController.h"
+
 
 // gets the linear acceleration values for each axis and prints them to standard output
 void testAccel() {
-	Vec3double acc = accelerationVector();
+	struct Vec3double acc = accelerationVector();
 	printf("acceleration ");
 	printVector(&acc);
 	
@@ -29,7 +27,7 @@ void testAccel() {
 
 // gets the angular rotation values for each axis and prints them to standard output
 void testGyro() {
-	Vec3double gyro = rotationVector();
+	struct Vec3double gyro = rotationVector();
 	printf("rotation ");
 	printVector(&gyro);
 }
@@ -155,7 +153,7 @@ void magAccelMotorTest(uint8_t address) {
 		usleep(500);
 		struct Vec3double acc = accelerationVector();
 		double mag = magnitude(&acc);
-		double thrust = powf((mag - minAccel)/diff, 2);
+		double thrust = pow((mag - minAccel)/diff, 2);
 		//printf("%f, %f\n", mag, thrust);
 		setMotorThrustPercentage(a, thrust);
 	}
@@ -214,7 +212,7 @@ void functionOverRange(void (*function)(uint8_t), uint8_t addresses[], uint8_t c
 }
 
 void testMagnetometer() {
-	Vec3double magField = magneticField();
+	struct Vec3double magField = magneticField();
 	printf("Magnetic Field ");
 	printVector(&magField);
 }

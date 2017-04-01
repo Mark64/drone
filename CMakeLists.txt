@@ -5,6 +5,8 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
 # flight controller test section
 project("Remote Drone")
+set(TEST_EXECUTABLE_NAME rocketTest)
+set(TEST_MAIN_FILE flight/FlightTest.c)
 
 # language settings
 #   enable C99 mode
@@ -32,18 +34,20 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/f
 add_subdirectory(flight)
 
 # create executable
-add_executable(rocketTest flight/FlightTest.cpp)
+add_executable(${TEST_EXECUTABLE_NAME} ${TEST_MAIN_FILE})
 
 # these libraries are built from this project's source tree and allow the project to be easily extended
-target_link_libraries(rocketTest avionics computation motion)
+target_link_libraries(${TEST_EXECUTABLE_NAME} avionics computation motion)
+# these are system libraries that must be linked
+target_link_libraries(${TEST_EXECUTABLE_NAME} m)
 
 # threading section
 find_package(Threads REQUIRED)
 if(THEADS_HAVE_PTHREAD_ARG)
-	target_compile_options(PUBLIC rocketTest "-pthread")
+	target_compile_options(PUBLIC ${TEST_EXECUTABLE_NAME} "-pthread")
 endif()
 if (CMAKE_THREAD_LIBS_INIT)
-	target_link_libraries(rocketTest ${CMAKE_THREAD_LIBS_INIT})
+	target_link_libraries(${TEST_EXECUTABLE_NAME} ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 

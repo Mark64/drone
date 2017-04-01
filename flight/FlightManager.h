@@ -29,7 +29,7 @@ void land(void (*landedCompletionHandler)(double));
 //   - a Vec3double vector representing the desired linear velocity 
 //   - a function pointer to a completition handler that will be called once the vehicle reached
 //      within 10% of the desired vector components
-void setVelocityVector(Vec3double velocityVector, void (*velocityUpdateCompletionHandler));
+void setVelocityVector(struct Vec3double velocityVector, void (*velocityUpdateCompletionHandler));
 
 // this function is called to update the angular velocity vector of the system to the supplied
 //   Vec3double argument
@@ -38,7 +38,7 @@ void setVelocityVector(Vec3double velocityVector, void (*velocityUpdateCompletio
 //   - a Vec3double vector representing the desired angular velocity 
 //   - a function pointer to a completition handler that will be called once the vehicle reached
 //      within 10% of the desired vector components
-void setAngularVelocityVector(Vec3double angularVelocityVector, void (*angularVelocityUpdateCompletionHandler));
+void setAngularVelocityVector(struct Vec3double angularVelocityVector, void (*angularVelocityUpdateCompletionHandler));
 
 
 

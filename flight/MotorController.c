@@ -5,10 +5,7 @@
 #include<math.h>
 
 #include "MotorController.h"
-
-extern "C" {
 #include "PWMController.h"
-}
 
 // the arming, minimum, and maximum thrust values
 // the arming value is a PWM percentage that tells the ESC there is a proper PWM signal source attached
@@ -23,20 +20,22 @@ extern "C" {
 // ESC = electronic speed controller
 uint8_t _armingStatus[] = {0, 0, 0, 0};
 
+// the hardware addresses of the PWM slot the motors are connected to
+// PWM = pulse width modulation
+#define _motor1Address 0
+#define _motor2Address 1
+#define _motor3Address 2
+#define _motor4Address 3
+// holds the array for motor addresses used to lookup true PWM address for each motor number
+uint8_t motorAddressLookupTable[4];
 
-// returns the PWM device number based on the motor address, allows PWM slot and motor number to be independent
-uint8_t motorAddress(uint8_t motorAddress) {
-	// the hardware addresses of the PWM slot the motors are connected to
-	// PWM = pulse width modulation
-	const uint8_t motor1Address = 0;
-	const uint8_t motor2Address = 1;
-	const uint8_t motor3Address = 2;
-	const uint8_t motor4Address = 3;
-
-	// array containing the motor addresses based with the index number being the motor number
-	const uint8_t motorAddresses[4] = {motor1Address, motor2Address, motor3Address, motor4Address};
-
-	return motorAddresses[motorAddress];
+// returns an array containing the motor addresses based with the index number being the motor number
+uint8_t *motorAddresses() {
+	motorAddressLookupTable[0] = _motor1Address;
+       	motorAddressLookupTable[1] = _motor2Address;
+	motorAddressLookupTable[2] = _motor3Address;
+	motorAddressLookupTable[3] = _motor4Address;
+	return motorAddressLookupTable;
 }
 
 // NOTE: There is a special case for 0 since the minimum thrust value actually is slightly above the
@@ -45,7 +44,7 @@ uint8_t motorAddress(uint8_t motorAddress) {
 // in order to use the motor, the ESC must first be armed by setting a low PWM signal
 void armMotor(uint8_t motorNumber) {
 	if (_armingStatus[motorNumber] == 0) {
-		setDutyPercent(motorAddress(motorNumber), _armingThrust);
+		setDutyPercent(motorAddresses()[motorNumber], _armingThrust);
 		usleep(50000);
 		_armingStatus[motorNumber] = 1;
 	}
@@ -53,7 +52,7 @@ void armMotor(uint8_t motorNumber) {
 
 // returns the thurst percentage
 double getMotorThrustPercentage(uint8_t motorNumber) {
-	double pwmThrustPercentage = getDutyPercent(motorAddress(motorNumber));
+	double pwmThrustPercentage = getDutyPercent(motorAddresses()[motorNumber]);
 
 	double motorThrustPercentage = (pwmThrustPercentage - _minimumThrust) / (_thrustRange);
 	
@@ -82,7 +81,7 @@ void setMotorThrustPercentage(uint8_t motorNumber, double thrustPercentage) {
 		pwmPercentage = _maximumThrust;
 	}
 
-	setDutyPercent(motorAddress(motorNumber), pwmPercentage);
+	setDutyPercent(motorAddresses()[motorNumber], pwmPercentage);
 }
 
 // calibrates the motors
@@ -98,7 +97,7 @@ void calibrateMotor(uint8_t motorNumber) {
 	
 	printf("calibrating motor %d\n", motorNumber);
 	printf("setting maximum throttle to %.2f%%\n", 100*maxThrottle);
-	setDutyPercent(motorAddress(motorNumber), maxThrottle);
+	setDutyPercent(motorAddresses()[motorNumber], maxThrottle);
 
 	usleep(500000);
 	
@@ -106,7 +105,7 @@ void calibrateMotor(uint8_t motorNumber) {
 	getchar();
 
 	printf("setting minimum throttle to %.2f%%\n", 100*minThrottle);
-	setDutyPercent(motorAddress(motorNumber), minThrottle);
+	setDutyPercent(motorAddresses()[motorNumber], minThrottle);
 	
 	usleep(1000000);
 }

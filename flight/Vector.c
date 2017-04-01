@@ -4,10 +4,10 @@
 //
 // Yes, this is terrible. No, I'm not gonna use a math library for software for an embedded device
 
+#include"Vector.h"
+
 #include<math.h>
 #include<stdio.h>
-
-#include"Vector.h"
 
 // VERY IMPORTANT NOTE
 //
