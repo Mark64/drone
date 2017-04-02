@@ -17,6 +17,34 @@
 #include "MotorController.h"
 
 
+void testStaticVectorLinearMotion() {
+	printf("linear motion vector tester\n");
+	printf("enter linear motion vector components a x.xx, y.yy z.zz then press enter\n");
+
+	for (int i = 0; i < 3; i++) {
+		//scanf("%f", vectorComponents);
+	}
+	
+	struct Vec3double target = vectorFromComponents(0.3, 0.4, 0);
+		//vectorFromComponents(vectorComponents[0], vectorComponents[1], vectorComponents[2]);
+		
+	setLinearMotionVector(target);
+}
+
+void testStaticVectorAngularMotion() {
+	printf("angular motion vector tester\n");
+	printf("enter angular motion vector component z.zz then press enter\n");
+
+	long double vectorComponents[1];
+	for (int i = 0; i < 1; i++) {
+		scanf("%Lf", vectorComponents);
+	}
+	
+	struct Vec3double target = vectorFromComponents(0, 0, -0.2);
+		
+	setAngularMotionVector(target);
+}
+
 // gets the linear acceleration values for each axis and prints them to standard output
 void testAccel() {
 	struct Vec3double acc = accelerationVector();
@@ -267,6 +295,12 @@ int main(int argc, char * argv[]) {
 		}
 		else if (strcmp(argv[i], "b") == 0) {
 			testBarometer();
+		}
+		else if (strcmp(argv[i], "slv") == 0) {
+			testStaticVectorLinearMotion();
+		}
+		else if (strcmp(argv[i], "sav") == 0) {
+			testStaticVectorAngularMotion();
 		}
 
 	}

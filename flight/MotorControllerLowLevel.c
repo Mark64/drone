@@ -1,8 +1,8 @@
-// implementation for the motor controller functions
+// implementation for the lower level motor controller functions
+// this handles the raw power and arming of the motors
 
 #include<stdio.h>
 #include<unistd.h>
-#include<math.h>
 
 #include "MotorController.h"
 #include "PWMController.h"
@@ -72,7 +72,8 @@ void setMotorThrustPercentage(uint8_t motorNumber, double thrustPercentage) {
 
 	double pwmPercentage = thrustPercentage * _thrustRange + _minimumThrust;
 
-	if (thrustPercentage == 0) {
+	if (thrustPercentage <= 0.00001) {
+		
 		pwmPercentage = _armingThrust;
 	}
 
