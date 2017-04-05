@@ -42,7 +42,7 @@ pthread_mutex_t _lock;
 int _mutex_created = 0;
 
 // this is a wait function and returns once the lock is removed to allow the i2c function to access the device
-void getLock() {
+static void getLock() {
 	if (!_mutex_created) {
 		pthread_mutex_init(&_lock, NULL);
 		_mutex_created = 1;
@@ -51,7 +51,7 @@ void getLock() {
 }
 
 // this frees the lock to allow another function to use the i2c device
-void releaseLock() {
+static void releaseLock() {
 	pthread_mutex_unlock(&_lock);
 }
 
@@ -106,7 +106,7 @@ void i2cClose() {
 
 // sets the i2c device address and also configures the i2c device to take 10 bit or 8 bit addresses
 // returns 0 for success and something else for error
-int i2cSetAddress(uint16_t address) {
+static int i2cSetAddress(uint16_t address) {
 	// in case the bus was never set, this ensures the i2c device is always initialized
 	i2cInit();
 	
@@ -332,7 +332,7 @@ int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t 
 
 
 // single or multiple byte write
-int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value, uint8_t autoIncrementEnabled) {	
+int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value, uint8_t highByteFirst, uint8_t autoIncrementEnabled) {	
 	// set address of i2c device and then check if it failed
 	if (i2cSetAddress(address) != 0) {
 		if (debug == 1) {
@@ -358,7 +358,8 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t val
 			
 		// the 32 bit value must be split into single bytes
 		for (int i = 0; i < numRegisters; i++) {
-			writeData[i+1] = (value >> (i * 8)) & mask;
+			int8_t offsets = highByteFirst == HIGH_BYTE_FIRST ? (numRegisters - i - 1) * 8 : (i * 8);
+			writeData[i+1] = (value >> offsets) & mask;
 		}
 
 		writeSuccess = write(_i2cFile, &writeData, numRegisters + 1);		
@@ -380,8 +381,8 @@ int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t val
 	for (int regIndex = 0; regIndex < numRegisters; regIndex++) {
 		// retrieves the byte to be written from within the value variable and puts it in a temporary variable
 		mask = 0x000000ff;
-		int offsets = regIndex;
-		uint8_t writeValue = (value >> (offsets * 8)) & mask;
+		int8_t offsets = highByteFirst == HIGH_BYTE_FIRST ? (numRegisters - regIndex - 1) * 8 : (regIndex * 8);
+		uint8_t writeValue = (value >> offsets) & mask;
 		
 		//printf("writing value %x obtained from a mask of %x on the original value %x\n", writeValue, mask, value);
 

@@ -10,34 +10,34 @@
 
 // when setting the current motion vector, this array contains the thrust value for each motor located
 //   at the index equal to the motor number
-double _motorThrustValues[] = {0, 0, 0, 0};
-uint8_t _motorCount = 4;
+static double _motorThrustValues[] = {0, 0, 0, 0};
+static const uint8_t _motorCount = 4;
 
 // stores the target vectors
-struct Vec3double _targetLinearVector = {0, 0, 0, 0, 0, 0};
-struct Vec3double _targetAngularVector = {0, 0, 0, 0, 0, 0};
+static struct Vec3double _targetLinearVector = {0, 0, 0, 0, 0, 0};
+static struct Vec3double _targetAngularVector = {0, 0, 0, 0, 0, 0};
 
 // these arrays contain the motor number(s) for each corresponding motion axis
-uint8_t _linearPosXMotors[] = {2};
-uint8_t _linearPosXMotorCount = 1;
-uint8_t _linearNegXMotors[] = {0};
-uint8_t _linearNegXMotorCount = 1;
-uint8_t _linearPosYMotors[] = {3};
-uint8_t _linearPosYMotorCount = 1;
-uint8_t _linearNegYMotors[] = {1};
-uint8_t _linearNegYMotorCount = 1;
-uint8_t _linearPosZMotors[] = {0, 1, 2, 3};
-uint8_t _linearPosZMotorCount = 4;
+static const uint8_t _linearPosXMotors[] = {2};
+static const uint8_t _linearPosXMotorCount = 1;
+static const uint8_t _linearNegXMotors[] = {0};
+static const uint8_t _linearNegXMotorCount = 1;
+static const uint8_t _linearPosYMotors[] = {3};
+static const uint8_t _linearPosYMotorCount = 1;
+static const uint8_t _linearNegYMotors[] = {1};
+static const uint8_t _linearNegYMotorCount = 1;
+static const uint8_t _linearPosZMotors[] = {0, 1, 2, 3};
+static const uint8_t _linearPosZMotorCount = 4;
 // no negative linear Z because the motors are not able to be reversed with my ESCs (electronic speed controllers)
 
-uint8_t _angularPosZMotors[] = {1, 3};
-uint8_t _angularPosZMotorCount = 2;
-uint8_t _angularNegZMotors[] = {0, 2};
-uint8_t _angularNegZMotorCount = 2;
+static const uint8_t _angularPosZMotors[] = {1, 3};
+static const uint8_t _angularPosZMotorCount = 2;
+static const uint8_t _angularNegZMotors[] = {0, 2};
+static const uint8_t _angularNegZMotorCount = 2;
 
 // implemented below
 // sets the motor thrust values based on the target vectors
-void updateMotion();
+static void updateMotion();
 
 
 
@@ -84,7 +84,7 @@ void setAngularMotionVector(struct Vec3double targetAngularMotion) {
 
 // updates the motion of the vehicle based on the linear and angular motion vectors 
 //   stored (look up for the variables) 
-void updateMotion() {
+static void updateMotion() {
 	
 	// zero out the thrust values at the beginning so that thrusts by axis can be added
 	for (int i = 0; i < _motorCount; i++) {
@@ -101,21 +101,21 @@ void updateMotion() {
 	// linear section
 	
 	// set the x values
-	uint8_t *xMotors = _targetLinearVector.x < 0 ? _linearNegXMotors : _linearPosXMotors;
+	const uint8_t *xMotors = _targetLinearVector.x < 0 ? _linearNegXMotors : _linearPosXMotors;
 	uint8_t xMotorCount = _targetLinearVector.x < 0 ? _linearNegXMotorCount : _linearPosXMotorCount;
 	for (int i = 0; i < xMotorCount; i++) {
 		_motorThrustValues[xMotors[i]] += xSquare;
 	}
 	
 	// set the y values
-	uint8_t *yMotors = _targetLinearVector.y < 0 ? _linearNegYMotors : _linearPosYMotors;
+	const uint8_t *yMotors = _targetLinearVector.y < 0 ? _linearNegYMotors : _linearPosYMotors;
 	uint8_t yMotorCount = _targetLinearVector.y < 0 ? _linearNegYMotorCount : _linearPosYMotorCount;
 	for (int i = 0; i < yMotorCount; i++) {
 		_motorThrustValues[yMotors[i]] += ySquare;
 	}
 	
 	// set the z values
-	uint8_t *zMotors = _linearPosZMotors;
+	const uint8_t *zMotors = _linearPosZMotors;
 	uint8_t zMotorCount = _linearPosZMotorCount;
 	for (int i = 0; i < zMotorCount; i++) {
 		_motorThrustValues[zMotors[i]] += zSquare;
@@ -131,9 +131,9 @@ void updateMotion() {
 	// this is done by maintaining total additive thrust, but reducing the thrust for the
 	//   pair of motors generating balancing spin and increasing thrust for motors with
 	//   resultant spin in the desired direction
-	uint8_t *desiredSpinMotors = _targetAngularVector.z < 0 ? _angularNegZMotors : _angularPosZMotors;
+	const uint8_t *desiredSpinMotors = _targetAngularVector.z < 0 ? _angularNegZMotors : _angularPosZMotors;
 	uint8_t desiredMotorCount = _targetAngularVector.z < 0 ? _angularNegZMotorCount : _angularPosZMotorCount;
-	uint8_t *undesiredSpinMotors = _targetAngularVector.z < 0 ? _angularPosZMotors : _angularNegZMotors;
+	const uint8_t *undesiredSpinMotors = _targetAngularVector.z < 0 ? _angularPosZMotors : _angularNegZMotors;
 	uint8_t undesiredMotorCount = _targetAngularVector.z < 0 ? _angularPosZMotorCount : _angularNegZMotorCount;
 
 	// since the angular setting is performed after the linear setting, the maximum increase and decrease
@@ -161,6 +161,9 @@ void updateMotion() {
 	}
 	printf("%f %f\n", maxDecrease, maxIncrease);
 
+
+	// thrust section
+
 	// now actually set the thrust values
 	// bounds verification is done at the low level implementation
 	for (int i = 0; i < _motorCount; i++) {
@@ -168,8 +171,9 @@ void updateMotion() {
 		thrust = thrust > 1 ? 1 : thrust;
 		thrust = thrust < 0 ? 0 : thrust;
 		printf("thrust %d %.9f\n", i, thrust);
-
-		setMotorThrustPercentage(i, thrust);
+		
+		// take square root of thrust since it is a sum of squared values
+		setMotorThrustPercentage(i, pow(thrust, 0.5));
 	}
 }
 

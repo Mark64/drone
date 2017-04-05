@@ -57,10 +57,10 @@ double angleXYPlane(struct Vec3double *vector) {
 	// to correct for this, if statements must be used
 	// to see why this is necessary and why M_PI was used, consult a unit circle
 	if (angle > 0 && vector->x < 0) {
-		angle += M_PI;
+		angle -= M_PI;
 	}
 	else if (angle < 0 && vector->x < 0) {
-		angle -= M_PI;
+		angle += M_PI;
 	}
 	
 	vector->angleXY = degreesFromRadians(angle);
@@ -81,20 +81,39 @@ double angleXZPlane(struct Vec3double *vector) {
 	// to correct for this, if statements must be used
 	// to see why this is necessary and why M_PI was used, consult a unit circle
 	if (angle > 0 && vector->x < 0) {
-		angle += M_PI;
+		angle -= M_PI;
 	}
 	else if (angle < 0 && vector->x < 0) {
-		angle -= M_PI;
+		angle += M_PI;
 	}
 
 	vector->angleXZ = degreesFromRadians(angle);
 	return vector->angleXZ;
 }
 
+// returns the horizontal - z angle
+double angleFromHorizontal(struct Vec3double *vector) {
+	// using atan (inverse tangent) to determine the angle
+	//   of course, don't divide by zero
+	
+	// getting the horizontal magnitude
+	double horizMagnitude = pow(pow(vector->x, 2) + pow(vector->y, 2), 0.5);
+
+	double tan = M_PI/2;
+	if (horizMagnitude != 0) {
+		tan = vector->z / horizMagnitude;
+	}
+	double angle = atan(tan);
+	
+	double degrees = degreesFromRadians(angle);
+	return degrees;
+
+}
+
 // useful function for debugging
 // returns a description of the Vector's components
 void printVector(struct Vec3double *vector) {
-	printf("vector\n magnitude: %f\n  x: %.3f\n  y: %f\n  z: %f\n", magnitude(vector), vector->x, vector->y, vector->z);
+	printf("vector\n magnitude: %f\n  x: %.3f\n  y: %f\n  z: %f\n  horizonal angle: %f\n  XY angle: %f\n", magnitude(vector), vector->x, vector->y, vector->z, angleFromHorizontal(vector), angleXYPlane(vector));
 }
 
 

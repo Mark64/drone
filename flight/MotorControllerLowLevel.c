@@ -10,10 +10,10 @@
 // the arming, minimum, and maximum thrust values
 // the arming value is a PWM percentage that tells the ESC there is a proper PWM signal source attached
 // there are based on the ESC and will most likely vary with different devices
-#define _armingThrust 0.0600
-#define _minimumThrust 0.1000 + 0.0100
-#define _maximumThrust 0.6337
-#define _thrustRange (_maximumThrust - _minimumThrust)
+static const double _armingThrust = 0.0600;
+static const double _minimumThrust = 0.1000 + 0.0100;
+static const double _maximumThrust = 0.6337;
+static const double _thrustRange = (/*_maximumThrust*/0.6337 - /*_minimumThrust*/0.1100);
 
 // array containing the status of each ESC's status as 'armed' (value of 1, meaning ready to 
 //   spin) or 'unarmed' (value of 0, not ready to spin)
@@ -22,15 +22,15 @@ uint8_t _armingStatus[] = {0, 0, 0, 0};
 
 // the hardware addresses of the PWM slot the motors are connected to
 // PWM = pulse width modulation
-#define _motor1Address 0
-#define _motor2Address 1
-#define _motor3Address 2
-#define _motor4Address 3
+static const uint8_t _motor1Address = 0;
+static const uint8_t _motor2Address = 1;
+static const uint8_t _motor3Address = 2;
+static const uint8_t _motor4Address = 3;
 // holds the array for motor addresses used to lookup true PWM address for each motor number
-uint8_t motorAddressLookupTable[4];
+static uint8_t motorAddressLookupTable[4];
 
 // returns an array containing the motor addresses based with the index number being the motor number
-uint8_t *motorAddresses() {
+static uint8_t *motorAddresses() {
 	motorAddressLookupTable[0] = _motor1Address;
        	motorAddressLookupTable[1] = _motor2Address;
 	motorAddressLookupTable[2] = _motor3Address;
@@ -42,7 +42,7 @@ uint8_t *motorAddresses() {
 //   true minimum to ensure it has no problems rotating under load
 
 // in order to use the motor, the ESC must first be armed by setting a low PWM signal
-void armMotor(uint8_t motorNumber) {
+static void armMotor(uint8_t motorNumber) {
 	if (_armingStatus[motorNumber] == 0) {
 		setDutyPercent(motorAddresses()[motorNumber], _armingThrust);
 		usleep(50000);

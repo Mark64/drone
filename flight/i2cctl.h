@@ -69,11 +69,14 @@ int i2cWordRead(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t 
 // writes the lower byte to the first register and the higher byte
 //   next, ending with the most significant byte
 // registers are written in order they appear in the array
+// highByteFirst is used to indicate whether the first register should be written
+//   with the high byte or the low byte
+//   use the macros HIGH_BYTE_FIRST and LOW_BYTE_FIRST
 // autoIncrementEnabled is a device specific flag that only applies if the device
 //   is configured to increment register number automatically after a read
 //   0 = disabled, 1 = enabled
 // returns a 0 on success and -1 on failure
-int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value, uint8_t autoIncrementEnabled);
+int i2cWrite(uint16_t address, uint8_t reg[], uint8_t numRegisters, uint32_t value, uint8_t highByteFirst, uint8_t autoIncrementEnabled);
 
 
 

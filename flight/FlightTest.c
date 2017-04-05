@@ -81,23 +81,14 @@ double averageGyro(int axis) {
 }
 
 // gets the average linear acceleration value for the selected axis (0=x, 1=y, 2=z)
-double averageAcceleration(int axis) {
+void averageAcceleration() {
 	double sum = 0;
-	int n = 5;
+	int n = 50000;
 	for (int i = 0; i < n; i++) {
-		switch (axis) {
-			case 2:
-				sum += accelerationVector().z;
-				break;
-			case 1:
-				sum += accelerationVector().y;
-				break;
-			default:
-				sum += accelerationVector().x;
-				break;
-		}
+		struct Vec3double a = accelerationVector();
+		sum += magnitude(&a);
 	}
-	return sum/n;
+	printf("average acceleration %f\n", sum/n);
 }
 
 // tests the number of i2c reads per second
@@ -240,9 +231,25 @@ void functionOverRange(void (*function)(uint8_t), uint8_t addresses[], uint8_t c
 }
 
 void testMagnetometer() {
-	struct Vec3double magField = magneticField();
-	printf("Magnetic Field ");
-	printVector(&magField);
+		struct Vec3double magField = magneticField();
+		printf("Magnetic Field ");
+		printVector(&magField);
+//		usleep(1000000);
+}
+
+void averageMagneticField() {
+	double x = 0, y = 0, z = 0;
+	int n = 10000;
+	for (int i = 0; i < n; i++) {
+		struct Vec3double mag = magneticField();
+		x += mag.x;
+		y += mag.y;
+		z += mag.z;
+	}
+	x /= n;
+	y /= n;
+	z /= n;
+	printf("average components:\n  x: %f\n  y: %f\n  z: %f\n", x, y, z);
 }
 
 void testBarometer() {
@@ -302,10 +309,16 @@ int main(int argc, char * argv[]) {
 		else if (strcmp(argv[i], "sav") == 0) {
 			testStaticVectorAngularMotion();
 		}
+		else if (strcmp(argv[i], "am") == 0) {
+			averageMagneticField();
+		}
+		else if (strcmp(argv[i], "aa") == 0) {
+			averageAcceleration();
+		}
 
 	}
 	if (argc == 1) {
-		printf("enter arguments r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
+		printf("enter arguments aa, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
 	}
 	
 

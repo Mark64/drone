@@ -12,17 +12,17 @@
 #include<unistd.h>
 
 // i2c address of the PWM chip
-uint16_t pwmDeviceAddress = 0x40;
+static const uint16_t pwmDeviceAddress = 0x40;
 
 // flag indicating whether the PWM chip has been initialized
 // this should only be set by the initializePWMController function
 // 0 = uninitialized = not ready for use
 // 1 = initialized = ready for use
-uint8_t initialized = 0;
+static uint8_t initialized = 0;
 
 // on boot, the PWM device must have its configuration registers set
 //   to the values specific for this application
-void initializePWMController() {
+static void initializePWMController() {
 	// if the chip has already been initialized, return
 	if (initialized) {
 		return;
@@ -45,11 +45,11 @@ void initializePWMController() {
 	uint8_t mode1Register[] = {0x00};
 	uint8_t value = 0x30;
 	
-	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
+	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 1 sleep register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 	}
 	
 
@@ -57,32 +57,32 @@ void initializePWMController() {
 	uint8_t prescaleRegister[] = {0xfe};
 	value = 0x16;
 	
-	success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, AUTO_INCREMENT_ENABLED);
+	success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 	
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying prescale register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, AUTO_INCREMENT_ENABLED);
+		success = i2cWrite(pwmDeviceAddress, prescaleRegister, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 	}
 	
 	// Mode 2
 	uint8_t mode2Register[] = {0x01};
 	value = 0x04;
 	
-	success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, AUTO_INCREMENT_ENABLED);
+	success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 2 register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, AUTO_INCREMENT_ENABLED);
+		success = i2cWrite(pwmDeviceAddress, mode2Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 	}
 
 	// Mode 1 (wake from sleep)
 	value = 0xa0;
 	
-	success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
+	success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("retrying mode 1 wake register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 	}
 
 	// must wait 500us for the internal oscillator on the PWM chip to stabilize as
@@ -104,11 +104,11 @@ void deinitializePWMController() {
 	uint8_t mode1Register[] = {0x00};
 	uint8_t value = 0x30;
 	
-	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
+	int success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 
 	for (int i = 0; i < 3 && success != 0; i++) {
 		printf("sleep failed, retrying mode 1 sleep register write in PWMController\n");
-		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, AUTO_INCREMENT_ENABLED);
+		success = i2cWrite(pwmDeviceAddress, mode1Register, 1, value, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 	}
 }
 
@@ -174,7 +174,7 @@ void setDutyPercent(uint8_t address, double percent) {
 	
 	uint8_t registers[] = {onLowRegister, onHighRegister, offLowRegister, offHighRegister};
 
-	i2cWrite(pwmDeviceAddress, registers, 4, combinedDelayValue, AUTO_INCREMENT_ENABLED);
+	i2cWrite(pwmDeviceAddress, registers, 4, combinedDelayValue, LOW_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 }
 
 

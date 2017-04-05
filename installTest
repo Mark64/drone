@@ -9,7 +9,8 @@ scp ./build/$EXECUTABLE $DEVICE_NAME:~
 scp ./build/flight/lib*.so $DEVICE_NAME:~
 ssh $DEVICE_NAME \
 	"sudo cp $EXECUTABLE /usr/local/bin; \
-	 sudo cp $LIBRARIES /usr/lib;        "
+	 sudo cp $LIBRARIES /usr/lib;        \
+	 rm $EXECUTABLE $LIBRARIES;          "
 
 
 

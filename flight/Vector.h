@@ -49,7 +49,7 @@ struct Vec3double vectorFromAnglesAndMagnitude(double angleXY, double angleXZ, d
 // gets the magnitude of the vector based on the components and sets the magnitude
 //   member of the Vec3double struct
 double magnitude(struct Vec3double *vector);
-	
+
 // returns the xy plane angle and sets the corresponding struct member
 // this is the angle relative to the +x axis rotated counterclockwise about
 //   the z axis
@@ -65,6 +65,11 @@ double angleXYPlane(struct Vec3double *vector);
 // on the right hand rule
 // returns the angle in degrees relative to the +x axis rotated about the -y axis
 double angleXZPlane(struct Vec3double *vector);
+
+// returns the angle between the horizontal component (magnitude of x and y)
+//   and the z component
+// result is the angle in degrees
+double angleFromHoritzonal(struct Vec3double *vector);
 
 // returns a string description of the vector
 // useful for debuging
