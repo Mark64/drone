@@ -74,13 +74,13 @@ void initializeSensors() {
 	//
 	uint8_t gyroConfigRegister[1] = {0x11};
 	// sets the gyroscope to 1.6kHz mode with a scale of 2000 degrees per second
-	uint8_t gyroConfig = 0x8c;
+	uint8_t gyroConfig = 0x84;
 	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 
 	// sets the gyroscope high pass filter on and sets the filter cutoff frequency
 	//   to 2.07Hz with rounding enabled
 	gyroConfigRegister[0] = 0x16;
-	gyroConfig = 0x64;
+	gyroConfig = 0x70;
 	gyroSuccess |= i2cWrite(gyroAddress, gyroConfigRegister, 1, gyroConfig, HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
 
 	if (gyroSuccess != 0) {

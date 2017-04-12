@@ -15,7 +15,33 @@
 #include "PWMController.h"
 #include "SensorManager.h"
 #include "MotorController.h"
+#include "Orientation.h"
 
+
+int orientationCompletionHandler(struct Orientation orientation) {
+	printf("Orientation\n");
+	printf("Acceleration ");
+	printVector(&orientation.acceleration);
+	printf("Angular position ");
+	printVector(&orientation.angularPosition);
+	printf("Altitude %f\n", orientation.altitude);
+
+	return 0;
+}
+
+void testOrientation() {
+	calibrateSensors();
+	getOrientation(&orientationCompletionHandler, 1);
+	while (1) {
+		sleep(1);
+	}
+}
+
+void testOrientationCalibration() {
+	printf("testing orientation calibration\n");
+	calibrateSensors();
+	printf("done\n");
+}
 
 void testStaticVectorLinearMotion() {
 	printf("linear motion vector tester\n");
@@ -25,9 +51,14 @@ void testStaticVectorLinearMotion() {
 		//scanf("%f", vectorComponents);
 	}
 	
-	struct Vec3double target = vectorFromComponents(0.3, 0.4, 0);
+	struct Vec3double target = vectorFromComponents(0.0, 0.0, 0.6);
 		//vectorFromComponents(vectorComponents[0], vectorComponents[1], vectorComponents[2]);
 		
+	setLinearMotionVector(target);
+
+	char *f = NULL;
+	scanf("%s", f);
+	target = vectorFromComponents(0, 0, 0);
 	setLinearMotionVector(target);
 }
 
@@ -315,10 +346,16 @@ int main(int argc, char * argv[]) {
 		else if (strcmp(argv[i], "aa") == 0) {
 			averageAcceleration();
 		}
+		else if (strcmp(argv[i], "oc") == 0) {
+			testOrientationCalibration();
+		}
+		else if (strcmp(argv[i], "oo") == 0) {
+			testOrientation();
+		}
 
 	}
 	if (argc == 1) {
-		printf("enter arguments aa, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
+		printf("enter arguments aa, oo, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
 	}
 	
 

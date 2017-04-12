@@ -4,6 +4,8 @@
 #ifndef _Orientation
 #define _Orientation
 
+#include<stdint.h>
+
 #include "Vector.h"
 
 struct Orientation {
@@ -13,12 +15,10 @@ struct Orientation {
 	struct Vec3double acceleration;
 
 	// this vector represents the vehicles angular rotation in units of degrees
-	//   per second
-	struct Vec3double angularRotation;
-
-	// this gives the vehicle's orientation as an angle in degrees in the XY plane 
-	//   relative to magnetic north
-	double angleFromNorth;
+	// x value is degrees from -z (right hand rule)
+	// y value is degrees from -z (right hand rule)
+	// z value is degrees from north (right hand rule)
+	struct Vec3double angularPosition;
 	
 	// this gives the vehicle's height in meters from sea level
 	double altitude;
@@ -28,13 +28,33 @@ struct Orientation {
 //   in the angle between sensors on the circuit layout
 void calibrateSensors();
 
-// this function retrieves all the sensor values and performs corrections based on
-//   calibration values and internal adjustments
-// the completion handler is called and passed the Orientation struct once the
-//   calculations finish
-//   this is due to the fact that internally, this is a multithreaded process
-// expected wait time is 5ms or less
-void getOrientation(void (*completionHandler)(struct Orientation));
+// calibrate sensors must be called before this function is called
+//   since there is no guaruntee the calibration would finish before the system begins
+//   moving
+// because the time to retrieve the orientation is subject to a variable number of factors
+//   which can become unpredictable as the complexity of the system increases, this semi-complex
+//   function is used to simplify the process (or complicate it, depending on your religious
+//   views)
+// when you call this function, the internal implementation spins up a variable number of threads
+//   to handle all the sensor inputs and computations, which reduces wasted CPU time and improves
+//   performance
+// once the implementation has determined that it has enough data to provide and updated
+//   representation of the system's orientation, it calls the passed in function pointer with
+//   the updated Orientation struct as the sole argument
+// note that the completionHandler function is called on a different thread, so it should be
+//   thread safe
+// this will continue as long as the system continues to function properly, which can be undesired
+//   while the system doesn't need the orientation (while landed for example)
+// for this reason, you can stop the continuous updates by passing a -1 as the return value for
+//   your completion handler
+//   a non-negative return value indicates that the orientation updates can proceed
+// since multithreaded systems can be complicated (citation needed), it is recommended that 
+//   the completion handler be able to handle a few additional update calls 
+//   after passing a -1 to stop updates, though this hopefully won't ever be an issue
+// the second argument is the desired update rate in Hz, which determines approximately how
+//   often the completionHandler will be called
+// returns 0 on success and -1 on failure
+int getOrientation(int (*completionHandler)(struct Orientation), uint16_t updateRate);
 
 
 

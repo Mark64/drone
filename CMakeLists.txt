@@ -37,7 +37,7 @@ add_subdirectory(flight)
 add_executable(${TEST_EXECUTABLE_NAME} ${TEST_MAIN_FILE})
 
 # these libraries are built from this project's source tree and allow the project to be easily extended
-target_link_libraries(${TEST_EXECUTABLE_NAME} avionics computation motion)
+target_link_libraries(${TEST_EXECUTABLE_NAME} avionics computation navigation)
 # these are system libraries that must be linked
 target_link_libraries(${TEST_EXECUTABLE_NAME} m)
 

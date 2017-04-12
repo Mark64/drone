@@ -21,16 +21,16 @@
 
 
 #ifdef RELEASE
-int debug = 0;
+static const int debug = 0;
 #else
-int debug = 1;
+static const int debug = 1;
 #endif
 
 
 // sorry for the global. Forgive me for I know not what I do
 // defaults to 1 because lets face it, thats normal
-uint8_t _bus = 1;
-int _i2cFile = -1000;
+static uint8_t _bus = 1;
+static int _i2cFile = -1000;
 
 // this mutex is used to protect the i2c device from being used to do a read or write operations
 //   simulateously on another thread
@@ -38,8 +38,8 @@ int _i2cFile = -1000;
 //   could potentially interfere with and corrupt other concurrent operations
 // the other _mutex_created variable allows the mutex to be initialized without a discrete initialize function
 // 1 = created, 0 = not created
-pthread_mutex_t _lock;
-int _mutex_created = 0;
+static pthread_mutex_t _lock;
+static int _mutex_created = 0;
 
 // this is a wait function and returns once the lock is removed to allow the i2c function to access the device
 static void getLock() {
@@ -52,7 +52,9 @@ static void getLock() {
 
 // this frees the lock to allow another function to use the i2c device
 static void releaseLock() {
-	pthread_mutex_unlock(&_lock);
+	if (_mutex_created) {
+		pthread_mutex_unlock(&_lock);
+	}
 }
 
 
