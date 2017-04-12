@@ -1,6 +1,9 @@
 // This contains code for collecting data from the various sensors and returning the data in a usable format
 //
 // In the future, I may implement a cache for data storage so that data collection rates can be independent of its use
+//
+// Note from the future: I did exactly that, even after forgetting the idea I wrote above, see Orientation.c
+
 
 #ifndef _SensorManager
 #define _SensorManager
@@ -27,10 +30,10 @@ struct Vec3double rotationVector();
 struct Vec3double magneticField();
 
 // returns the GPS position of the drone as a 2d coordinate position
+// struct Vec3double gpsPosition();
+// unimplemented, no such hardware
 
-
-// returns the current height of the drone in meters as measured from the barometer relative to the take off height
-// reads 0 when not in flight
+// returns the current altitude of the system in meters as measured from the barometer
 // measured in units of meters
 double barometerAltitude();
 

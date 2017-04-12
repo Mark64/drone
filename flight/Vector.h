@@ -1,14 +1,12 @@
 // Vector wrapper
-// I know it sucks, but I don't have the patience to learn an entire math library to get stupid 3d vector
+// I know it sucks, but I don't have the patience to learn an entire math library to get a simple 3d vector
 //
-// Plus most of them are for graphics libraries or research development and that honestly too much
+// Plus most of them are for graphics libraries or research development and thats too much overhead
 //
 
 
 //
 // VERY IMPORTANT NOTE
-//
-// LIKE SERIOUSLY DONT SCREW THIS UP
 //
 // +Z points toward the sky
 //
@@ -92,10 +90,10 @@ void printVector(struct Vec3double *vector);
 
 
 
-// I need radians but all I have are these degrees
+// converts the input from degrees to radians
 double radiansFromDegrees(double degrees);
 
-// I want my degrees back
+// converts the input from radians to degrees
 double degreesFromRadians(double radians);
 
 

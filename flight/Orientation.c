@@ -47,7 +47,18 @@ static const uint16_t _calibrationVectorCount = 3000;
 
 // this defines the "numVectors" value to be used during update computation
 // hopefully reduces noise
-static const uint16_t _updateVectorCount = 8;
+static const uint16_t _updateVectorCount = 3;
+
+// this variable is a flag indicating whether updates should
+//   be run or that the system should be put to sleep
+// 0 means stop, positive values mean go
+static int shouldUpdate = 0;
+// these following values indicate the frequency with which
+//   to run their corresponding functions
+// values are in Hz
+static const uint16_t accelerationUpdateFrequency = 800;
+static const uint16_t angularPositionUpdateFrequency = 1600;
+static const uint16_t altitudeUpdateFrequency = 2;
 
 
 // stores the current orientation
@@ -301,17 +312,6 @@ static double getAltitude() {
 	return altitude;
 }
 
-
-// this variable is a flag indicating whether updates should
-//   be run or that the system should be put to sleep
-// 0 means stop, positive values mean go
-static int shouldUpdate = 0;
-// these following values indicate the frequency with which
-//   to run their corresponding functions
-// values are in Hz
-static const uint16_t accelerationUpdateFrequency = 100;
-static const uint16_t angularPositionUpdateFrequency = 100;
-static const uint16_t altitudeUpdateFrequency = 2;
 
 // this function is executed infinitely while shouldUpdate
 //   is a positive value

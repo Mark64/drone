@@ -49,7 +49,7 @@ struct Vec3double vectorFromSubtractingVectors(struct Vec3double *vector1, struc
 
 // returns the magnitude of the vector
 double magnitude(struct Vec3double *vector) {
-	vector->magnitude = pow((pow(vector->x, 2) + pow(vector->y, 2) + pow(vector->z, 2)), 0.5);
+	vector->magnitude = pow((vector->x * vector->x) + (vector->y * vector->y) + (vector->z * vector->z), 0.5);
 	return vector->magnitude;
 }
 

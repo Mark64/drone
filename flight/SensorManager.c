@@ -1,6 +1,8 @@
 // implementation of the sensor manager header
 //
-// this is one of the few files that may have to be rewritten for each new drone
+// this is one of the few files that may have to be rewritten for each new system
+// this imeplementation is for the cleanDrone
+//
 // configuration values taken from the data sheet located at the following URLs
 //
 // accelerometer and gyroscope
@@ -30,7 +32,6 @@ static const uint8_t barometerAddress= 0x77;
 //   so you have to retrieve and store the calibration values to calculate the
 //   pressure and temperature
 static int32_t barometerCalibrationValues[11];
-
 // internal function used to retrieve barometer values
 void getBarometerParameters();
 
@@ -39,7 +40,9 @@ void getBarometerParameters();
 static uint8_t _sensorsAvailable = 0;
 
 // converts signed value into two's complement form
-uint32_t unsignedValue16bit(int _signedValue);
+uint32_t unsignedValue(int _signedValue, uint8_t numBits);
+// converts two's complement unsigned value into signed value
+int32_t signedValue(int _unsignedValue, uint8_t numBits);
 
 void initializeSensors() {
 	// no need to run if sensors already initialized
@@ -195,12 +198,12 @@ void deinitializeSensors() {
 
 // values are usually returned in two's complement
 // this returns the signed value from the raw two's complement input
-int32_t signedValue16bit(uint32_t _unsignedValue) {
+int32_t signedValue(uint32_t _unsignedValue, uint8_t numBits) {
 	// maximum positive value used for comparison
-	uint32_t maxPos = 32767;
+	uint32_t maxPos = pow(2, numBits - 1) - 1;
 	// maximum value the number can take based on the number of bits
 	// in this case, I am using 16 bit values
-	uint32_t maxNeg = 65536;
+	uint32_t maxNeg = 2 * (maxPos + 1);
 	
 	// the value to be returned, assuming it is positive
 	int result = _unsignedValue;
@@ -213,10 +216,10 @@ int32_t signedValue16bit(uint32_t _unsignedValue) {
 
 
 // converts from a signed value into a two's complement value
-uint32_t unsignedValue16bit(int _signedValue) {
+uint32_t unsignedValue(int _signedValue, uint8_t numBits) {
 	// maximum value the number can take based on the number of bits
 	// in this case, I am using 16 bit values
-	uint32_t maxNeg = 65536;
+	uint32_t maxNeg = pow(2, numBits);
 	
 	uint32_t result = _signedValue;
 
@@ -253,9 +256,9 @@ struct Vec3double threeAxisVector(uint16_t address, uint8_t *registers, uint8_t 
 	}
 
 	// convert the values from unsigned two's complement to a signed int
-	int rawx = signedValue16bit(vectorValues[0]);
-	int rawy = signedValue16bit(vectorValues[1]);
-	int rawz = signedValue16bit(vectorValues[2]);
+	int rawx = signedValue(vectorValues[0], 16);
+	int rawy = signedValue(vectorValues[1], 16);
+	int rawz = signedValue(vectorValues[2], 16);
 
 	double x = rawx / divisor;
 	double y = rawy / divisor;
@@ -373,7 +376,7 @@ void getBarometerParameters() {
 			int32_t signedReadValue;
 
 			if (i < 3 || i > 5) {
-				signedReadValue = signedValue16bit(readValue);
+				signedReadValue = signedValue(readValue, 16);
 			}
 			else {
 				signedReadValue = readValue;
