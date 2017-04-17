@@ -167,13 +167,13 @@ static void updateMotion() {
 	// now actually set the thrust values
 	// bounds verification is done at the low level implementation
 	for (int i = 0; i < _motorCount; i++) {
-		double thrust = _motorThrustValues[i];
+		// take the square root of this value since it is a sum of squares
+		double thrust = pow(_motorThrustValues[i], 0.5);
 		thrust = thrust > 1 ? 1 : thrust;
 		thrust = thrust < 0 ? 0 : thrust;
 		printf("thrust %d %.9f\n", i, thrust);
 		
-		// take square root of thrust since it is a sum of squared values
-		setMotorThrustPercentage(i, pow(thrust, 0.5));
+		setMotorThrustPercentage(i, thrust);
 	}
 }
 

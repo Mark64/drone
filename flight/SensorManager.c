@@ -42,7 +42,7 @@ static uint8_t _sensorsAvailable = 0;
 // converts signed value into two's complement form
 uint32_t unsignedValue(int _signedValue, uint8_t numBits);
 // converts two's complement unsigned value into signed value
-int32_t signedValue(int _unsignedValue, uint8_t numBits);
+int32_t signedValue(uint32_t _unsignedValue, uint8_t numBits);
 
 void initializeSensors() {
 	// no need to run if sensors already initialized

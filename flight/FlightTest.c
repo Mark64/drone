@@ -18,6 +18,13 @@
 #include "Orientation.h"
 
 
+void testEmergencyStop() {
+	printf("performing emergency stop on motors\n");
+	for (int i = 0; i < 4; i++) {
+		setMotorThrustPercentage(i, 0);
+	}
+}
+
 int orientationCompletionHandler(struct Orientation orientation) {
 	printf("Orientation\n");
 	printf("Acceleration ");
@@ -51,7 +58,7 @@ void testStaticVectorLinearMotion() {
 		//scanf("%f", vectorComponents);
 	}
 	
-	struct Vec3double target = vectorFromComponents(0.0, 0.0, 0.6);
+	struct Vec3double target = vectorFromComponents(0.0, 0.0, 0.37);
 		//vectorFromComponents(vectorComponents[0], vectorComponents[1], vectorComponents[2]);
 		
 	setLinearMotionVector(target);
@@ -352,10 +359,13 @@ int main(int argc, char * argv[]) {
 		else if (strcmp(argv[i], "oo") == 0) {
 			testOrientation();
 		}
+		else if (strcmp(argv[i], "x") == 0) {
+			testEmergencyStop();
+		}
 
 	}
 	if (argc == 1) {
-		printf("enter arguments aa, oo, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
+		printf("enter arguments x, aa, oo, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
 	}
 	
 
