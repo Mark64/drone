@@ -66,7 +66,7 @@ static const uint16_t altitudeUpdateFrequency = 2;
 // this struct contains the angular position of the device
 // it is computed through a combination of the magnetometer
 //   position and the integrated angle of the gyroscope
-static struct Orientation _currentOrientation = {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, 0};
+static struct Orientation _currentOrientation = {.altitude = 0};
 // this is the mutex lock for use when reading from or writing to
 //   the _currentOrientation structure
 static pthread_mutex_t _currentOrientationMutex;
@@ -245,11 +245,9 @@ double deltaTime() {
 	lastUpdateTime = nanoSecondTime;
 	return deltaTime;
 }
-// gets the standing angular position
-// has the assumption that the device is relatively motionless
-// can be at any angle though since it uses the
-//   accelerometer to determine this value
-static struct Vec3double getAngularPosition() {
+
+// uses the gyroscope to obtain the current angular position
+static struct Vec3double angPosGyro() {
 	struct Vec3double rotation = averageVector(&rotationVector, _updateVectorCount);
 
 	double rotationVelocityXZ = rotation.y - _angularDrift.y;
@@ -258,7 +256,6 @@ static struct Vec3double getAngularPosition() {
 
 	// gets the mutex lock for reading
 	getLock();
-	
 	double dT = deltaTime();
 	
 	double angleXZ = rotationVelocityXZ * dT + _currentOrientation.angularPosition.y;
@@ -266,11 +263,31 @@ static struct Vec3double getAngularPosition() {
 	// the XY angle is also updated separately by degreesFromNorth(). so it is usually
 	//   more accurate than the other angles
 	double angleXY = rotationVelocityXY * dT + _currentOrientation.angularPosition.z;
+	releaseLock();
 
-	struct Vec3double currentAngularPosition = vectorFromComponents(angleYZ, angleXZ, angleXY);
+	return vectorFromComponents(angleYZ, angleXZ, angleXY);
+}
 
+
+// uses the accelerometer to obtain the current angular position
+static struct Vec3double angPosAccel() {
+	struct Vec3double accel = averageVector(&accelerationVector, _updateVectorCount);
+
+	return vectorFromComponents(_stationaryAcceleration.angleYZ - 90, _stationaryAcceleration.angleXZ - 90, 0);
+}
+
+// gets the current angular position relative to a ray pointing towards the ground
+// can use the accelerometer values, gyroscope, or a combination of the two to
+//   compute the angular position
+static struct Vec3double getAngularPosition() {
+	
+	// uses the gyro and accelerometer obtained position values in combination
+	struct Vec3double gyroPos = angPosGyro();
+	struct Vec3double accelPos = angPosAccel();
+	struct Vec3double currentAngularPosition = vectorFromComponents(accelPos.x, accelPos.y, gyroPos.z);
 	
 	// updates the angular position
+	getLock();
 	_currentOrientation.angularPosition = currentAngularPosition;
 	releaseLock();
 

@@ -18,15 +18,8 @@
 #include "Orientation.h"
 
 
-void testEmergencyStop() {
-	printf("performing emergency stop on motors\n");
-	for (int i = 0; i < 4; i++) {
-		setMotorThrustPercentage(i, 0);
-	}
-}
 
 int orientationCompletionHandler(struct Orientation orientation) {
-	printf("Orientation\n");
 	printf("Acceleration ");
 	printVector(&orientation.acceleration);
 	printf("Angular position ");
@@ -36,10 +29,86 @@ int orientationCompletionHandler(struct Orientation orientation) {
 	return 0;
 }
 
-void testOrientation() {
+
+#define N 100000
+static struct Orientation orientationValues[N];
+static struct Orientation totals = {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, 0};
+static int count = 0;
+static int canReturn = 0;
+
+int orientationStatisticsCompletionHandler(struct Orientation orientation) {
+	orientationValues[count] = orientation;
+	totals.acceleration.x += orientation.acceleration.x;
+	totals.acceleration.y += orientation.acceleration.y;
+	totals.acceleration.z += orientation.acceleration.z;
+	totals.angularPosition.x += orientation.angularPosition.x;
+	totals.angularPosition.y += orientation.angularPosition.y;
+	totals.angularPosition.z += orientation.angularPosition.z;
+	totals.altitude += orientation.altitude;
+	count++;
+	if (count >= N) {
+		totals.acceleration.x /= N;
+		totals.acceleration.y /= N;
+		totals.acceleration.z /= N;
+		totals.angularPosition.x /= N;
+		totals.angularPosition.y /= N;
+		totals.angularPosition.z /= N;
+		totals.altitude /= N;
+
+		double accelerationXDiffS, accelerationYDiffS, accelerationZDiffS, angX, angY, angZ, alt = 0;
+		for (int i = 0; i < N; i++) {
+			accelerationXDiffS += pow(orientationValues[i].acceleration.x - totals.acceleration.x, 2);
+			accelerationYDiffS += pow(orientationValues[i].acceleration.y - totals.acceleration.y, 2);
+			accelerationZDiffS += pow(orientationValues[i].acceleration.z - totals.acceleration.z, 2);
+			angX += pow(orientationValues[i].angularPosition.x - totals.angularPosition.x, 2);
+			angY += pow(orientationValues[i].angularPosition.y - totals.angularPosition.y, 2);
+			angZ += pow(orientationValues[i].angularPosition.z - totals.angularPosition.z, 2);
+			alt += pow(orientationValues[i].altitude - totals.altitude, 2);
+		}
+		double axs = pow(accelerationXDiffS / (N -1), 0.5);
+		double ays = pow(accelerationYDiffS / (N -1), 0.5);
+		double azs = pow(accelerationZDiffS / (N -1), 0.5);
+		double pxs = pow(angX / (N -1), 0.5);
+		double pys = pow(angY / (N -1), 0.5);
+		double pzs = pow(angZ / (N -1), 0.5);
+		double al = pow(alt / (N -1), 0.5);
+
+		printf("averages\n");
+		orientationCompletionHandler(totals);
+
+		printf("Standard Deviations\n  accel x: %f\n  accel y: %f\n accel z: %f\n  ", axs, ays, azs);
+		printf("angular x: %f\n  angular y: %f\n angular z: %f\n altitude: %f\n", pxs, pys, pzs, al);
+
+		canReturn = 1;
+	}
+	return canReturn;
+}
+
+void testOrientationStatistics() {
+	printf("testing orientation - stats mode\n");
+	printf("calibrating...\n");
 	calibrateSensors();
+	printf("begining orientation statistics printout of %i samples at 5kHz\n", N);
+	getOrientation(&orientationStatisticsCompletionHandler, 5000);
+	while (!canReturn) {
+		sleep(1);
+	}
+}
+
+void testEmergencyStop() {
+	printf("performing emergency stop on motors\n");
+	for (int i = 0; i < 4; i++) {
+		setMotorThrustPercentage(i, 0);
+	}
+}
+
+void testOrientation() {
+	printf("testing orientation\n");
+	printf("calibrating\n");
+	calibrateSensors();
+	printf("begin printing orientation @ 1Hz\n");
 	getOrientation(&orientationCompletionHandler, 1);
-	while (1) {
+	while (!canReturn) {
 		sleep(1);
 	}
 }
@@ -362,10 +431,13 @@ int main(int argc, char * argv[]) {
 		else if (strcmp(argv[i], "x") == 0) {
 			testEmergencyStop();
 		}
+		else if (strcmp(argv[i], "os") == 0) {
+			testOrientationStatistics();
+		}
 
 	}
 	if (argc == 1) {
-		printf("enter arguments x, aa, oo, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
+		printf("enter arguments os, x, aa, oo, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
 	}
 	
 
