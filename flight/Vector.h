@@ -24,69 +24,41 @@ struct Vec3double {
 	double y;
 	double z;
 
-	// variables that take longer to compute and so are set on demand
-	// call the appropriate getter to have these generated
-	double angleXY;
-	double angleXZ;
-	double angleYZ;
+	double alpha;
+	double beta;
+	double gamma;
 	double magnitude;
 };
 
 
-// in case you're wondering why I use so many pointers seemingly for no reason, its a performance optimization
-
-
 // creates a vector based on components
-struct Vec3double vectorFromComponents(double _x, double _y, double _z);
+struct Vec3double vectorFromComponents(double x, double y, double z);
 
 // creates a vector based on angles and magnitude
-//   the first angle is the angle in the xy plane relative to the +x axis using right hand rule for rotation
-//   the second angle is the angle in the xz plane relative to the +x axis using right hand rule for rotation
-//   for more information on the angles, see the comments 
 //   the magnitude is between 0 and 1 for a vector used for the motor controller, can be a value in another range for a different use
-struct Vec3double vectorFromAnglesAndMagnitude(double angleXZ, double angleYZ, double magnitude);
+struct Vec3double vectorFromCosAndMagnitude(double alpha, double beta, double gamma, double magnitude);
 
 // creates a vector by subtracting the two vector arguments
 struct Vec3double vectorFromSubtractingVectors(struct Vec3double *vector1, struct Vec3double *vector2);
 
-// gets the magnitude of the vector based on the components and sets the magnitude
-//   member of the Vec3double struct
-double magnitude(struct Vec3double *vector);
-
-// returns the xy plane angle and sets the corresponding struct member
-// this is the angle relative to the +x axis rotated counterclockwise about
-//   the z axis
-// see the wikipedia page on the right hand rule
-// a vector pointing parallel to the +x axis will have an angle of 0 here
-//   and a vector pointing parallel to the +y axis will have an angle of 
-//   90 degrees
-// returns the angle in degrees
-double angleXYPlane(struct Vec3double *vector);
-
-// returns the xz plane angle and sets the corresponding struct member
-// see the comments above for the 'angleXYPlane()' function for more details
-// on the right hand rule
-// returns the angle in degrees relative to the +x axis rotated about the -y axis
-double angleXZPlane(struct Vec3double *vector);
-
-// returns the yz plane angle and sets the corresponding struct member
-// see the comments above for the 'angleXYPlane()' function for more details
-// on the right hand rule
-// returns the angle in degrees relative to the +y axis rotated about the -x axis
-double angleYZPlane(struct Vec3double *vector);
-
 // returns the angle between the horizontal component (magnitude of x and y)
 //   and the z component
 // result is the angle in degrees
-double angleFromHorizontal(struct Vec3double *vector);
+double angleFromHorizontal(struct Vec3double *vector) __attribute__ ((deprecated));
+
+// returns the angle in the XY plane
+double angleXY(struct Vec3double *vector);
+
+// returns an angle in degrees based on the passed in cosine
+double angleFromCos(double cosine);
 
 // returns the angle between two vectors
 // uses the formula cos(theta) = (u*v)/(||u||*||v||)
 double angleBetweenVectors(struct Vec3double *vector1, struct Vec3double *vector2);
 
-// returns a string description of the vector
+// prints a string description of the vector
 // useful for debuging
-void printVector(struct Vec3double *vector);
+void printVector(struct Vec3double vector, const char *title);
 
 
 

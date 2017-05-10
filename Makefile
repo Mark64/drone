@@ -14,15 +14,8 @@ INSTALL_TEST := installTest
 all: ./build/Makefile
 	@ $(MAKE) -C build
 
-allpc: ./buildpc/Makefile
-	@ $(MAKE) -C buildpc
-
 ./build/Makefile: toolchain
-	@ (cd build > /dev/null 2>&1 && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE) ..)
-
-./buildpc/Makefile:
-	@  ($(MKDIR) buildpc > /dev/null)
-	@  (cd buildpc > /dev/null 2>&1 && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..)
+	@ (cd build > /dev/null 2>&1 && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE) ..)
 
 toolchain:
 	# installing the Raspberry Pi toolchain as defined by the "installRPIToolchain" script
@@ -50,8 +43,6 @@ distclean:
 clean:
 	@ (cd build && $(MAKE) clean)
 
-cleanpc:
-	@ (cd buildpc && $(MAKE) clean)
 
 
 

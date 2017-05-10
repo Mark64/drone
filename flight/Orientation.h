@@ -14,12 +14,12 @@ struct Orientation {
 	// given in units of g (~9.8m/s^2)
 	struct Vec3double acceleration;
 
-	// this vector represents the vehicles angular rotation in units of degrees
-	// x value is degrees from -z (right hand rule)
-	// y value is degrees from -z (right hand rule)
-	// z value is degrees from north (right hand rule)
-	struct Vec3double angularPosition;
-	
+	// this vector represents the gravity vector relative to the system
+	struct Vec3double gravity;
+
+	// stores the heading as degrees from north
+	double heading;
+
 	// this gives the vehicle's height in meters from sea level
 	double altitude;
 };
@@ -48,13 +48,13 @@ void calibrateSensors();
 // for this reason, you can stop the continuous updates by passing a -1 as the return value for
 //   your completion handler
 //   a non-negative return value indicates that the orientation updates can proceed
-// since multithreaded systems can be complicated (citation needed), it is recommended that 
-//   the completion handler be able to handle a few additional update calls 
+// since multithreaded systems can be complicated (citation needed), it is recommended that
+//   the completion handler be able to handle a few additional update calls
 //   after passing a -1 to stop updates, though this hopefully won't ever be an issue
 // the second argument is the desired update rate in Hz, which determines approximately how
 //   often the completionHandler will be called
 // returns 0 on success and -1 on failure
-int getOrientation(int (*completionHandler)(struct Orientation), uint16_t updateRate);
+int getOrientation(int (*update)(struct Orientation), uint16_t updateRate);
 
 
 

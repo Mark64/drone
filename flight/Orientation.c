@@ -6,12 +6,15 @@
 
 #include<stdint.h>
 #include<stdio.h>
+#include<math.h>
 #include<stdlib.h>
 #include<unistd.h>
 #include<time.h>
 #include<pthread.h>
 
 #include "SensorManager.h"
+#include "Vector.h"
+#include "matrix.h"
 
 // get inclination
 // get acceleration magnitude
@@ -43,7 +46,7 @@ static double _inclinationAngle = 0;
 static double _magneticFieldMagnitude = 0;
 
 // this defines the "numVectors" value to be used during calibration
-static const uint16_t _calibrationVectorCount = 3000;
+static const uint16_t _calibrationVectorCount = 1000;
 
 // this defines the "numVectors" value to be used during update computation
 // hopefully reduces noise
@@ -52,13 +55,19 @@ static const uint16_t _updateVectorCount = 3;
 // this variable is a flag indicating whether updates should
 //   be run or that the system should be put to sleep
 // 0 means stop, positive values mean go
-static int shouldUpdate = 0;
+static int volatile shouldUpdate = 0;
 // these following values indicate the frequency with which
 //   to run their corresponding functions
 // values are in Hz
-static const uint16_t accelerationUpdateFrequency = 800;
-static const uint16_t angularPositionUpdateFrequency = 1600;
+static const uint16_t accelerationUpdateFrequency = 200;
+static const uint16_t angularPositionUpdateFrequency = 400;
+static const uint16_t headingUpdateFrequency = 200;
 static const uint16_t altitudeUpdateFrequency = 2;
+
+// values used in the kalman filter
+static const double accelerometerTrust = 0.2;
+static const double gyroTrust = 0.8;
+static const double magnetometerTrust = 0.2;
 
 
 // stores the current orientation
@@ -117,7 +126,7 @@ static struct Vec3double averageVector(struct Vec3double (*creationFunction)(), 
 	average.y /= numVectors;
 	average.z /= numVectors;
 
-	return average;
+	return vectorFromComponents(average.x, average.y, average.z);
 }
 
 
@@ -132,12 +141,6 @@ static void calibrateAccelerometer() {
 	getLock();
 
 	_stationaryAcceleration = averageVector(&accelerationVector, _calibrationVectorCount);
-	// forces computation of the computed struct members
-	magnitude(&_stationaryAcceleration);
-	angleXZPlane(&_stationaryAcceleration);
-	angleYZPlane(&_stationaryAcceleration);
-	angleXYPlane(&_stationaryAcceleration);
-
 	// done writing
 	releaseLock();
 }
@@ -148,14 +151,12 @@ static void calibrateAccelerometer() {
 static void calibrateMagnetometer() {
 	// retrieve the magnetic field average vector and its angle from horizontal
 	struct Vec3double averageMagneticField = averageVector(&magneticField, _calibrationVectorCount);
-	
+
 	// gets the mutex lock for writing
 	getLock();
 
 	// gets the inclination
 	_inclinationAngle = 90 - angleBetweenVectors(&_stationaryAcceleration, &averageMagneticField);
-	// gets the magnitude of the field
-	_magneticFieldMagnitude = magnitude(&averageMagneticField);
 
 	printf("inclination is %f degrees above horizontal\n", _inclinationAngle);
 
@@ -176,20 +177,14 @@ static void calibrateGyroscope() {
 	// uses 2x vectors because I want double the data
 	uint16_t numVectors = 2 * _calibrationVectorCount;
 	_angularDrift = averageVector(&rotationVector, numVectors);
-	printf("angular drift ");
-	printVector(&_angularDrift);
-	
+	printVector(_angularDrift, "angular drift");
+
 	// gets the mutex lock for writing
 	getLock();
 
-	// notice that the z component is set to 0.  That value isn't determined by
-	//   integration of the gyroscope, but instead by the actual reading
-	//   from the magnetometer, so it can be set to 0 during calibration
-	// the 90 - x is used to convert the angles from a horizontal axis representation into a -z axis representation
-	_currentOrientation.angularPosition = vectorFromComponents(_stationaryAcceleration.angleYZ - 90, _stationaryAcceleration.angleXZ - 90, 0);
-	
-	printf("angular position ");
-	printVector(&_currentOrientation.angularPosition);
+	_currentOrientation.gravity = vectorFromCosAndMagnitude(_stationaryAcceleration.alpha, _stationaryAcceleration.beta, _stationaryAcceleration.gamma, _stationaryAcceleration.magnitude);
+
+	printVector(_currentOrientation.gravity, "gravity");
 	// releases the mutex lock
 	releaseLock();
 }
@@ -211,9 +206,9 @@ void calibrateSensors() {
 //   a ray pointing towards magnetic North
 static double degreesFromNorth() {
 	struct Vec3double magField = averageVector(&magneticField, _updateVectorCount);
-	
+
 	// this is actually not the correct way to get north
-	return angleXYPlane(&magField);
+	return angleXY(&magField);
 }
 
 // this variable stores the time the angularPosition was last updated in microseconds
@@ -232,7 +227,7 @@ double deltaTime() {
 
 	double nanoSecondTime = currentTime.tv_sec + (double)(currentTime.tv_nsec)/1000000000.0;
 	double deltaTime = nanoSecondTime - lastUpdateTime;
-	
+
 	// which means that this is the first time this function has been called,
 	//   so there was really no comparison value in the first place
 	// have to include floating point tolerance when dealing with small
@@ -240,7 +235,7 @@ double deltaTime() {
 	if (lastUpdateTime <= 0.00001) {
 		lastUpdateTime = nanoSecondTime;
 		return 0;
-	}	
+	}
 
 	lastUpdateTime = nanoSecondTime;
 	return deltaTime;
@@ -250,22 +245,25 @@ double deltaTime() {
 static struct Vec3double angPosGyro() {
 	struct Vec3double rotation = averageVector(&rotationVector, _updateVectorCount);
 
-	double rotationVelocityXZ = rotation.y - _angularDrift.y;
-	double rotationVelocityYZ = rotation.x - _angularDrift.x;
-	double rotationVelocityXY = rotation.z - _angularDrift.z;
-
-	// gets the mutex lock for reading
 	getLock();
-	double dT = deltaTime();
-	
-	double angleXZ = rotationVelocityXZ * dT + _currentOrientation.angularPosition.y;
-	double angleYZ = rotationVelocityYZ * dT + _currentOrientation.angularPosition.x;
-	// the XY angle is also updated separately by degreesFromNorth(). so it is usually
-	//   more accurate than the other angles
-	double angleXY = rotationVelocityXY * dT + _currentOrientation.angularPosition.z;
+	double dt = deltaTime();
+	struct Vec3double gravity = _currentOrientation.gravity;
 	releaseLock();
 
-	return vectorFromComponents(angleYZ, angleXZ, angleXY);
+	double roll = (rotation.x - _angularDrift.x) * dt;
+	double pitch = (rotation.y - _angularDrift.y) * dt;
+	double yaw = (rotation.z - _angularDrift.z) * dt;
+
+	struct matrix3 rotationMatrix = rotationMatrix3d(roll, pitch, yaw);
+	return transformVectorByMatrix(gravity, rotationMatrix);
+
+//	double angleYZ = rotationVelocityYZ * dT + _currentOrientation.gravity.x;
+//	double angleXZ = rotationVelocityXZ * dT + _currentOrientation.gravity.y;
+	// the XY angle is also updated separately by degreesFromNorth(). so it is usually
+	//   more accurate than the other angles
+//	double angleXY = rotationVelocityXY * dT + _currentOrientation.gravity.z;
+
+//	return vectorFromComponents(angleYZ, angleXZ, angleXY);
 }
 
 
@@ -273,22 +271,31 @@ static struct Vec3double angPosGyro() {
 static struct Vec3double angPosAccel() {
 	struct Vec3double accel = averageVector(&accelerationVector, _updateVectorCount);
 
-	return vectorFromComponents(_stationaryAcceleration.angleYZ - 90, _stationaryAcceleration.angleXZ - 90, 0);
+	return vectorFromCosAndMagnitude(accel.alpha, accel.beta, accel.gamma, _stationaryAcceleration.magnitude);
 }
 
 // gets the current angular position relative to a ray pointing towards the ground
 // can use the accelerometer values, gyroscope, or a combination of the two to
 //   compute the angular position
 static struct Vec3double getAngularPosition() {
-	
 	// uses the gyro and accelerometer obtained position values in combination
-	struct Vec3double gyroPos = angPosGyro();
 	struct Vec3double accelPos = angPosAccel();
-	struct Vec3double currentAngularPosition = vectorFromComponents(accelPos.x, accelPos.y, gyroPos.z);
-	
+	struct Vec3double gyroPos = angPosGyro();
+	double xPos = gyroPos.x * gyroTrust + accelPos.x * accelerometerTrust;
+	double yPos = gyroPos.y * gyroTrust + accelPos.y * accelerometerTrust;
+	double zPos = gyroPos.z * gyroTrust + accelPos.z * accelerometerTrust;
+
+	double mag = vectorFromComponents(xPos, yPos, zPos).magnitude;
+	getLock();
+	double correctMag = _stationaryAcceleration.magnitude;
+	releaseLock();
+	double magMultiplier = correctMag / mag;
+
+	struct Vec3double currentAngularPosition = vectorFromComponents(xPos * magMultiplier, yPos * magMultiplier, zPos * magMultiplier);
+
 	// updates the angular position
 	getLock();
-	_currentOrientation.angularPosition = currentAngularPosition;
+	_currentOrientation.gravity = currentAngularPosition;
 	releaseLock();
 
 	return currentAngularPosition;
@@ -300,22 +307,18 @@ static struct Vec3double correctedAcceleration() {
 	struct Vec3double rawAcceleration = averageVector(&accelerationVector, _updateVectorCount);
 	// creates a vector pointing in the direction of gravity with the magnitude measuring
 	//   in the system's stationary state
-	// x - 90 is used because the angles need to be converted back into horizontal axis representation
 	// needs the mutex lock
+
+	struct Vec3double acceleration = vectorFromSubtractingVectors(&rawAcceleration, &_currentOrientation.gravity);
+
 	getLock();
-	double angleXZ = _currentOrientation.angularPosition.y + 90;
-	double angleYZ = _currentOrientation.angularPosition.x + 90;
-	double magnitude = _stationaryAcceleration.magnitude;
-	struct Vec3double gravity = vectorFromAnglesAndMagnitude(angleXZ, angleYZ, magnitude);
-	
-	struct Vec3double acceleration = vectorFromSubtractingVectors(&rawAcceleration, &gravity);
-	
+
 	// updates the internal orientation struct
 	_currentOrientation.acceleration = acceleration;
 	releaseLock();
 
 	return acceleration;
-}	
+}
 
 // yes, I know this seems redunant, but it allow for easier modification
 static double getAltitude() {
@@ -343,7 +346,7 @@ static void *updateAcceleration(void *input) {
 		printf("invalid input to updateAcceleration\n");
 		return NULL;
 	}
-	
+
 	// this is the pointer the orientation struct which
 	//   this function will record updates to
 	struct Orientation *orientation = (struct Orientation *)(input);
@@ -356,9 +359,9 @@ static void *updateAcceleration(void *input) {
 			// sleeps for 1.5 seconds
 			usleep(1500000);
 		}
-		
+
 		orientation->acceleration = correctedAcceleration();
-		
+
 		// sleep to prevent CPU waste since the
 		//   sensors only have limited update frequency
 		usleep(sleepTime);
@@ -379,7 +382,7 @@ static void *updateAngularPosition(void *input) {
 		printf("invalid input to updateAngularPosition\n");
 		return NULL;
 	}
-	
+
 	// this is the pointer the orientation struct which
 	//   this function will record updates to
 	struct Orientation *orientation = (struct Orientation *)(input);
@@ -392,15 +395,54 @@ static void *updateAngularPosition(void *input) {
 			// sleeps for 1.5 seconds
 			usleep(1500000);
 		}
-		
-		orientation->angularPosition = getAngularPosition();
-		
+
+		orientation->gravity = getAngularPosition();
+
 		// sleep to prevent CPU waste since the
 		//   sensors only have limited update frequency
 		usleep(sleepTime);
 	}
 	return NULL;
 }
+
+
+// this function is executed infinitely while shouldUpdate
+//   is a positive value
+// setting shouldUpdate to 0 causes this function to put its
+//   thread into a sleep state, waking up every few seconds to
+//   check the shouldUpdate flag
+// expects an Orientation struct pointer as the input
+// returns NULL when it does return
+// updates the heading member of the struct input
+static void *updateHeading(void *input) {
+	if (input == NULL) {
+		printf("invalid input to updateHeading\n");
+		return NULL;
+	}
+
+	// this is the pointer the orientation struct which
+	//   this function will record updates to
+	struct Orientation *orientation = (struct Orientation *)(input);
+	// stores the time the function should sleep between
+	//   updates in microseconds
+	uint16_t sleepTime = (uint16_t)(1000000.0/(double)(headingUpdateFrequency));
+
+	while (1) {
+		while (!shouldUpdate) {
+			// sleeps for 1.5 seconds
+			usleep(1500000);
+		}
+
+		orientation->heading = degreesFromNorth();
+
+		// sleep to prevent CPU waste since the
+		//   sensors only have limited update frequency
+		usleep(sleepTime);
+	}
+	return NULL;
+}
+
+
 
 // this function is executed infinitely while shouldUpdate
 //   is a positive value
@@ -415,7 +457,7 @@ static void *updateAltitude(void *input) {
 		printf("invalid input to updateAltitude\n");
 		return NULL;
 	}
-	
+
 	// this is the pointer the orientation struct which
 	//   this function will record updates to
 	struct Orientation *orientation = (struct Orientation *)(input);
@@ -428,9 +470,9 @@ static void *updateAltitude(void *input) {
 			// sleeps for 1.5 seconds
 			usleep(1500000);
 		}
-		
+
 		orientation->altitude = getAltitude();
-		
+
 		// sleep to prevent CPU waste since the
 		//   sensors only have limited update frequency
 		usleep(sleepTime);
@@ -439,8 +481,8 @@ static void *updateAltitude(void *input) {
 }
 
 
-// whenever a call is made to getOrienation, information 
-//   specific to each listener is passed into the 
+// whenever a call is made to getOrienation, information
+//   specific to each listener is passed into the
 //   function as arguments
 // the getOrientation function creates a struct which is
 //   passed to the updateOrientation function
@@ -453,13 +495,14 @@ struct OrientationUpdateInformation {
 
 // common orientation structure to be used by the member update functions as
 //   the sole place to store updates
-static struct Orientation _commonOrientation = {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, 0};
+static struct Orientation _commonOrientation = {.altitude = 0};
 // stores the thread pointers
 // only one thread per Orientation struct member is used, which
 //   allows for multiple listener functions without wasting resources
 static pthread_t _accelerationThread = 0;
 static pthread_t _angularPositionThread = 0;
 static pthread_t _altitudeThread = 0;
+static pthread_t _headingThread = 0;
 // stores the current number of listeners as an integer
 static uint16_t _numListeners = 0;
 // stores the max allowed number of listeners
@@ -481,24 +524,28 @@ int createStructMemberUpdateThreads() {
 	if (_altitudeThread == 0) {
 		failure |= pthread_create(&_altitudeThread, NULL, &updateAltitude, (void *)&_commonOrientation);
 	}
+	if (_headingThread == 0) {
+		failure |= pthread_create(&_headingThread, NULL, &updateHeading, (void *)&_commonOrientation);
+	}
 
 	if (failure) {
 		printf("failed to create struct member update threads\n");
 		return -1;
 	}
-	
+
 	return 0;
 }
 
 // gracefully exits (hopefully) or kills the orientation
 //   struct member update threads
-// if the threads are already dead, or if there are other 
+// if the threads are already dead, or if there are other
 // active listeners, simply returns 0 and acts like it did something
 // returns 0 on success and -1 on failure
 int killStructMemberUpdateThreads() {
 	if (_numListeners > 0) {
 		return 0;
 	}
+	printf("last listener exited\nterminated orientation update threads\n");
 	int returnValue = 0;
 	if (_accelerationThread != 0) {
 		int failure = pthread_cancel(_accelerationThread);
@@ -510,7 +557,7 @@ int killStructMemberUpdateThreads() {
 			returnValue = -1;
 		}
 	}
-	if (_angularPositionThread == 0) {
+	if (_angularPositionThread != 0) {
 		int failure = pthread_cancel(_angularPositionThread);
 		if (!failure) {
 			_angularPositionThread = 0;
@@ -520,13 +567,23 @@ int killStructMemberUpdateThreads() {
 			returnValue = -1;
 		}
 	}
-	if (_altitudeThread == 0) {
+	if (_altitudeThread != 0) {
 		int failure = pthread_cancel(_altitudeThread);
 		if (!failure) {
 			_altitudeThread = 0;
 		}
 		else {
 			printf("failed to cancel altitude thread\n");
+			returnValue = -1;
+		}
+	}
+	if (_headingThread != 0) {
+		int failure = pthread_cancel(_headingThread);
+		if (!failure) {
+			_headingThread = 0;
+		}
+		else {
+			printf("failed to cancel heading thread\n");
 			returnValue = -1;
 		}
 	}
@@ -565,13 +622,13 @@ void *updateOrientation(void *input) {
 	int exit = 0;
 	while (1) {
 		if (exit) {
-			printf("exit requested. Ending listener thread\n");
+			printf("exit requested\nending listener thread\n");
 			_numListeners--;
 			killStructMemberUpdateThreads();
 			pthread_exit(NULL);
 		}
 
-		threadInfo.completionHandler(_commonOrientation);
+		exit = threadInfo.completionHandler(_commonOrientation);
 
 		usleep(waitTimeMicroseconds);
 	}
@@ -591,10 +648,10 @@ int getOrientation(int (*completionHandler)(struct Orientation), uint16_t update
 	// set the update information struct
 	struct OrientationUpdateInformation *threadInfo = (struct OrientationUpdateInformation *)(malloc(sizeof(struct OrientationUpdateInformation)));
 	threadInfo->desiredOrientationUpdateRate = updateRate;
-       	threadInfo->completionHandler = completionHandler;
+	threadInfo->completionHandler = completionHandler;
 	// set the shouldUpdate flag
 	shouldUpdate = 1;
-	
+
 	// spin up thread for orientation updates
 	pthread_t orienatationThread;
 	int failure = pthread_create(&orienatationThread, NULL, &updateOrientation, threadInfo);

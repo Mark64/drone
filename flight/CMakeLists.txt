@@ -1,4 +1,4 @@
-add_library(computation SHARED Vector)
+add_library(computation SHARED Vector matrix)
 
 add_library(avionics SHARED i2cctl SensorManager PWMController)
 target_link_libraries(avionics computation)

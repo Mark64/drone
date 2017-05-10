@@ -53,7 +53,7 @@ struct Vec3double getAngularMotionVector() {
 
 // sets the target linear motion vector
 void setLinearMotionVector(struct Vec3double targetLinearMotion) {
-	if (magnitude(&targetLinearMotion) > 1) {
+	if (targetLinearMotion.magnitude > 1) {
 		printf("error when setting linear motion vector. magnitude of supplied vector is greater than 1\n");
 		return;
 	}
@@ -69,7 +69,7 @@ void setLinearMotionVector(struct Vec3double targetLinearMotion) {
 
 // sets the target angular motion vector
 void setAngularMotionVector(struct Vec3double targetAngularMotion) {
-	if (magnitude(&targetAngularMotion) > 1) {
+	if (targetAngularMotion.magnitude > 1) {
 		printf("magnitude of angular vector too large (mag > 1)\n");
 		return;
 	}
@@ -82,10 +82,10 @@ void setAngularMotionVector(struct Vec3double targetAngularMotion) {
 
 
 
-// updates the motion of the vehicle based on the linear and angular motion vectors 
-//   stored (look up for the variables) 
+// updates the motion of the vehicle based on the linear and angular motion vectors
+//   stored (look up for the variables)
 static void updateMotion() {
-	
+
 	// zero out the thrust values at the beginning so that thrusts by axis can be added
 	for (int i = 0; i < _motorCount; i++) {
 		_motorThrustValues[i] = 0;
@@ -96,24 +96,24 @@ static void updateMotion() {
 	double xSquare = pow(_targetLinearVector.x, 2);
 	double ySquare = pow(_targetLinearVector.y, 2);
 	double zSquare = pow(_targetLinearVector.z, 2);
-	
+
 
 	// linear section
-	
+
 	// set the x values
 	const uint8_t *xMotors = _targetLinearVector.x < 0 ? _linearNegXMotors : _linearPosXMotors;
 	uint8_t xMotorCount = _targetLinearVector.x < 0 ? _linearNegXMotorCount : _linearPosXMotorCount;
 	for (int i = 0; i < xMotorCount; i++) {
 		_motorThrustValues[xMotors[i]] += xSquare;
 	}
-	
+
 	// set the y values
 	const uint8_t *yMotors = _targetLinearVector.y < 0 ? _linearNegYMotors : _linearPosYMotors;
 	uint8_t yMotorCount = _targetLinearVector.y < 0 ? _linearNegYMotorCount : _linearPosYMotorCount;
 	for (int i = 0; i < yMotorCount; i++) {
 		_motorThrustValues[yMotors[i]] += ySquare;
 	}
-	
+
 	// set the z values
 	const uint8_t *zMotors = _linearPosZMotors;
 	uint8_t zMotorCount = _linearPosZMotorCount;
@@ -122,9 +122,9 @@ static void updateMotion() {
 		printf("%d %f\n", zMotors[i], zSquare);
 	}
 
-	
+
 	// angular section
-	
+
 	double zSquareAngular = pow(_targetAngularVector.z, 2);
 
 	// set the z axis spin
@@ -172,10 +172,16 @@ static void updateMotion() {
 		thrust = thrust > 1 ? 1 : thrust;
 		thrust = thrust < 0 ? 0 : thrust;
 		printf("thrust %d %.9f\n", i, thrust);
-		
+
 		setMotorThrustPercentage(i, thrust);
 	}
 }
+
+
+
+
+
+
 
 
 

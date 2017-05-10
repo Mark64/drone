@@ -17,87 +17,55 @@
 //
 // +Y can be found with the right hand rule but it points towards the left, which makes sense because I'm left handed
 
+// returns the magnitude of a vector based on the passed in componenets
+double magnitude(double _x, double _y, double _z) {
+	return pow((_x * _x) + (_y * _y) + (_z * _z), 0.5);
+}
+
 
 // default function for creating Vec3double struct from components
 struct Vec3double vectorFromComponents(double _x, double _y, double _z) {
-	struct Vec3double vector = {_x, _y, _z, 0, 0, 0, 0};
+	double mag = magnitude(_x, _y, _z);
+	double alpha, beta, gamma = 0;
+	if (mag > 0) {
+		alpha = _x / mag;
+		beta = _y / mag;
+		gamma = _z / mag;
+	}
+	struct Vec3double vector = {_x, _y, _z, alpha, beta, gamma, mag};
 
 	return vector;
 }
 
 
 // creates a vector and calculates the values of its components based on the angles and magnitude passed in
-struct Vec3double vectorFromAnglesAndMagnitude(double angleXZ, double angleYZ, double magnitude) {
-	double x = cos(radiansFromDegrees(angleXZ)) * magnitude;
-	double y = cos(radiansFromDegrees(angleYZ)) * magnitude;
-	double z = sin(radiansFromDegrees(angleXZ)) * magnitude;
-	
-	struct Vec3double vector = {x, y, z, 0, 0, 0, 0};
+struct Vec3double vectorFromCosAndMagnitude(double alpha, double beta, \
+					       double gamma, double magnitude) {
+	double x = alpha * magnitude;
+	double y = beta * magnitude;
+	double z = gamma * magnitude;
+
+	struct Vec3double vector = {x, y, z, alpha, beta, gamma, magnitude};
 
 	return vector;
 }
 
 // basic vector subtraction
-struct Vec3double vectorFromSubtractingVectors(struct Vec3double *vector1, struct Vec3double *vector2) {
-	double x = vector1->x - vector2->x;
-	double y = vector1->y - vector2->y;
-	double z = vector1->z - vector2->z;
+struct Vec3double vectorFromSubtractingVectors(struct Vec3double *v1, \
+					       struct Vec3double *v2) {
+	double x = v1->x - v2->x;
+	double y = v1->y - v2->y;
+	double z = v1->z - v2->z;
 
 	return vectorFromComponents(x, y, z);
 }
 
 
-// returns the magnitude of the vector
-double magnitude(struct Vec3double *vector) {
-	vector->magnitude = pow((vector->x * vector->x) + (vector->y * vector->y) + (vector->z * vector->z), 0.5);
-	return vector->magnitude;
-}
-
-double angleOfTangent(double numerator, double denominator) {
-	// using atan (inverse tangent) to determine the angle
-	//   of course, don't divide by zero
-	double tan = M_PI/2;
-	if (denominator != 0) {
-		tan = numerator / denominator;
-	}
-	double angle = atan(tan);
-	
-	// however, tan inverse only has a range of +-pi/2
-	// to correct for this, if statements must be used
-	// to see why this is necessary and why M_PI was used, consult a unit circle
-	if (angle > 0 && denominator < 0) {
-		angle -= M_PI;
-	}
-	else if (angle < 0 && denominator < 0) {
-		angle += M_PI;
-	}
-
-	return degreesFromRadians(angle);
-}
-
-// returns the xy plane angle
-double angleXYPlane(struct Vec3double *vector) {
-	vector->angleXY = angleOfTangent(vector->y, vector->x);
-	return vector->angleXY;
-}
-
-// returns the xz plane angle
-double angleXZPlane(struct Vec3double *vector) {
-	vector->angleXZ = angleOfTangent(vector->z, vector->x);
-	return vector->angleXZ;
-}
-
-// returns the yz plane angle, copied from xz
-double angleYZPlane(struct Vec3double *vector) {
-	vector->angleYZ = angleOfTangent(vector->z, vector->y);;
-	return vector->angleYZ;
-}
-
 // returns the horizontal - z angle
 double angleFromHorizontal(struct Vec3double *vector) {
 	// using atan (inverse tangent) to determine the angle
 	//   of course, don't divide by zero
-	
+
 	// getting the horizontal magnitude
 	double horizMagnitude = pow(pow(vector->x, 2) + pow(vector->y, 2), 0.5);
 
@@ -106,25 +74,41 @@ double angleFromHorizontal(struct Vec3double *vector) {
 		tan = vector->z / horizMagnitude;
 	}
 	double angle = atan(tan);
-	
+
 	double degrees = degreesFromRadians(angle);
 	return degrees;
 
 }
 
 // returns the angle between two vectors
-double angleBetweenVectors(struct Vec3double *vector1, struct Vec3double *vector2) {
-	double numerator = (vector1->x * vector2->x) + (vector1->y * vector2->y) + (vector1->z * vector2->z);
-	double denominator = magnitude(vector1) * magnitude(vector2);
+double angleBetweenVectors(struct Vec3double *v1, struct Vec3double *v2) {
+	double numerator = (v1->x * v2->x) + (v1->y * v2->y) + (v1->z * v2->z);
+	double denominator = v1->magnitude * v2->magnitude;
 	return degreesFromRadians(acos(numerator / denominator));
 }
 
 // useful function for debugging
 // returns a description of the Vector's components
-void printVector(struct Vec3double *vector) {
-	printf("vector\n magnitude: %f\n  x: %.3f\n  y: %f\n  z: %f\n  XZ angle: %f\n  XY angle: %f\n", magnitude(vector), vector->x, vector->y, vector->z, angleXZPlane(vector), angleXYPlane(vector));
+void printVector(struct Vec3double vector, const char *title) {
+	printf("%s\n magnitude: %f\n  x: %.3f\n  y: %f\n  z: %f\n  alpha: %f\n  beta: %f\n  gamma: %f\n", \
+	       title, vector.magnitude, vector.x, vector.y, vector.z, \
+	       angleFromCos(vector.alpha), angleFromCos(vector.beta), \
+	       angleFromCos(vector.gamma));
+	//printf("%s\n magnitude: %f\n  x: %.3f\n  y: %f\n  z: %f\n  alpha: %f\n  beta: %f\n  gamma: %f\n", \
+	       title, vector.magnitude, vector.x, vector.y, vector.z, \
+	       vector.alpha, vector.beta, vector.gamma);
 }
 
+// returns xy angle
+double angleXY(struct Vec3double *v) {
+	double horizMag = pow(v->x * v->x + v->y * v->y, 0.5);
+	return angleFromCos(v->x / horizMag) * (v->y > 0 ? 1 : -1);
+}
+
+// returns degrees from cosine input
+double angleFromCos(double cosine) {
+	return degreesFromRadians(acos(cosine));
+}
 
 // private function for converting radians to degrees
 inline double degreesFromRadians(double radians) {
