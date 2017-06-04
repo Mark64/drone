@@ -19,8 +19,8 @@
 #include<unistd.h>
 #include<math.h>
 
-#include "SensorManager.h"
-#include "i2cctl.h"
+#include <SensorManager.h>
+#include <i2cctl.h>
 
 
 static const uint8_t accelAddress = 0x6b;

@@ -27,7 +27,7 @@ void setLinearMotionVector(struct Vec3double targetLinearMotion);
 
 
 
-// Important: only Z axis angular motion is supported in Mark Hill's implementation
+// Important: only Z axis angular motion is supported in my implementation
 //   the X and Y components are ignored and have no effect
 // Instead, it is recommended that the linear velocity be set with a low z value to achieve
 //   rotation in the x and y axises for the drone implementation

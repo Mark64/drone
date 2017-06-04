@@ -6,7 +6,8 @@
 #include<math.h>
 #include<stdint.h>
 
-#include "MotorController.h"
+#include <MotorController.h>
+#include <Vector.h>
 
 // when setting the current motion vector, this array contains the thrust value for each motor located
 //   at the index equal to the motor number

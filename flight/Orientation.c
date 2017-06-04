@@ -2,8 +2,6 @@
 //
 // by Mark Hill
 
-#include "Orientation.h"
-
 #include<stdint.h>
 #include<stdio.h>
 #include<math.h>
@@ -12,9 +10,10 @@
 #include<time.h>
 #include<pthread.h>
 
-#include "SensorManager.h"
-#include "Vector.h"
-#include "matrix.h"
+#include <SensorManager.h>
+#include <Vector.h>
+#include <matrix.h>
+#include <Orientation.h>
 
 // get inclination
 // get acceleration magnitude
@@ -36,7 +35,7 @@ static struct Vec3double _stationaryAcceleration;
 //   the gyroscope
 static struct Vec3double _angularDrift;
 
-// the inclination of the magnetic field in degrees from a
+// the inclination of the magnetic field in degrees below the
 //   horizontal line
 static double _inclinationAngle = 0;
 // the magnitude of the magnetic field
@@ -65,8 +64,8 @@ static const uint16_t headingUpdateFrequency = 200;
 static const uint16_t altitudeUpdateFrequency = 2;
 
 // values used in the kalman filter
-static const double accelerometerTrust = 0.2;
-static const double gyroTrust = 0.8;
+static const double accelerometerTrust = 0.1;
+static const double gyroTrust = 0.9;
 static const double magnetometerTrust = 0.2;
 
 
@@ -156,9 +155,9 @@ static void calibrateMagnetometer() {
 	getLock();
 
 	// gets the inclination
-	_inclinationAngle = 90 - angleBetweenVectors(&_stationaryAcceleration, &averageMagneticField);
+	_inclinationAngle = angleBetweenVectors(&_stationaryAcceleration, &averageMagneticField) - 90;
 
-	printf("inclination is %f degrees above horizontal\n", _inclinationAngle);
+	printf("inclination is %f degrees below horizontal\n", _inclinationAngle);
 
 	// done writing
 	releaseLock();
@@ -618,19 +617,22 @@ void *updateOrientation(void *input) {
 	// if the completion handler requests termination,
 	//   terminates on the next loop
 	uint32_t waitTimeMicroseconds = (uint32_t)(1000000.0/(double)(threadInfo.desiredOrientationUpdateRate)); 
-	// exit = 0 means don't exit, exit = 1 means do exit
-	int exit = 0;
+	int completion = 0;
 	while (1) {
-		if (exit) {
+		usleep(waitTimeMicroseconds);
+
+		completion = threadInfo.completionHandler(_commonOrientation);
+
+		if (completion < 0) {
 			printf("exit requested\nending listener thread\n");
 			_numListeners--;
 			killStructMemberUpdateThreads();
 			pthread_exit(NULL);
 		}
-
-		exit = threadInfo.completionHandler(_commonOrientation);
-
-		usleep(waitTimeMicroseconds);
+		else if (completion > 0) {
+			threadInfo.desiredOrientationUpdateRate = completion;
+			waitTimeMicroseconds = (uint32_t)(1000000.0/(double)(completion)); 
+		}
 	}
 
 	return NULL;
@@ -663,6 +665,14 @@ int getOrientation(int (*completionHandler)(struct Orientation), uint16_t update
 	return 0;
 }
 
+
+// prints out the orientation struct
+void printOrientation(struct Orientation o) {
+	printVector(o.acceleration, "acceleration");
+	printVector(o.gravity, "gravity");
+	printf("degrees from North %f\n", o.heading);
+	printf("altitude %f\n", o.altitude);
+}
 
 
 

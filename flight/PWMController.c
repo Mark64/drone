@@ -5,11 +5,12 @@
 //
 // by Mark Hill
 
-#include "PWMController.h"
-#include "i2cctl.h"
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
+
+#include <PWMController.h>
+#include <i2cctl.h>
 
 // i2c address of the PWM chip
 static const uint16_t pwmDeviceAddress = 0x40;

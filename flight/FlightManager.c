@@ -5,24 +5,34 @@
 #include<stdint.h>
 #include<unistd.h>
 
-#include "FlightManager.h"
-#include "Orientation.h"
-#include "MotorController.h"
-
-
-// the following values are used by setting them to the desired hold values when the corresponding 
-//   OrientationHold bit is set
-// they also have an accompanying tolerance specified as the absolute value of the tolerance (+/- value)
-const double linearTolerance = 0.08; // g's (~9.8m/s^2)
-const double angularTolerance = 3; // degrees (inaccurate measurement subject to drift)
-const double angularZTolerance = 1; // degrees (this from the compass, so more accurate)
-const double altitudeTolerance = 0.5; // meters
-
-struct Orientation desiredOrientation;
+#include <FlightManager.h>
+#include <Orientation.h>
+#include <MotorController.h>
 
 
 
+struct Orientation desiredOrientation = {};
+struct Orientation currentOrientation = {};
 
+// flag that indicates whether drone is in flight
+static int inFlight = 0;
+
+
+// completion handler for orientation updates
+int orientationUpdate(struct Orientation orientation) {
+	printOrientation(orientation);
+
+	return (inFlight ? 500 : 1);
+}
+
+
+// starts the flight manager thread
+int startFlightManager() {
+	calibrateSensors();
+	getOrientation(&orientationUpdate, 1);
+
+	return 0;
+}
 
 
 

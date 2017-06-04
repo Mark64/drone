@@ -4,10 +4,10 @@
 //
 // Yes, this is terrible. No, I'm not gonna use a math library for software for an embedded device
 
-#include"Vector.h"
-
 #include<math.h>
 #include<stdio.h>
+
+#include <Vector.h>
 
 // VERY IMPORTANT NOTE
 //
@@ -63,20 +63,8 @@ struct Vec3double vectorFromSubtractingVectors(struct Vec3double *v1, \
 
 // returns the horizontal - z angle
 double angleFromHorizontal(struct Vec3double *vector) {
-	// using atan (inverse tangent) to determine the angle
-	//   of course, don't divide by zero
-
-	// getting the horizontal magnitude
-	double horizMagnitude = pow(pow(vector->x, 2) + pow(vector->y, 2), 0.5);
-
-	double tan = M_PI/2;
-	if (horizMagnitude != 0) {
-		tan = vector->z / horizMagnitude;
-	}
-	double angle = atan(tan);
-
-	double degrees = degreesFromRadians(angle);
-	return degrees;
+	struct Vec3double horiz = vectorFromComponents(vector->x, vector->y, 0);
+	return angleBetweenVectors(vector, &horiz);
 
 }
 

@@ -11,20 +11,26 @@
 #include<pthread.h>
 #include<math.h>
 
-#include "i2cctl.h"
-#include "PWMController.h"
-#include "SensorManager.h"
-#include "MotorController.h"
-#include "Orientation.h"
+#include <i2cctl.h>
+#include <PWMController.h>
+#include <SensorManager.h>
+#include <MotorController.h>
+#include <Orientation.h>
+#include <FlightManager.h>
 
 
+
+void testFlightManager() {
+	if (startFlightManager()) {
+		printf("failed to start flight manager\n");
+	}
+	while (1) {
+		usleep(50000);
+	}
+}
 
 int orientationCompletionHandler(struct Orientation orientation) {
-	printVector(orientation.acceleration, "acceleration");
-	printVector(orientation.gravity, "gravity");
-	printf("degrees from North %f\n", orientation.heading);
-	printf("altitude %f\n", orientation.altitude);
-
+	printOrientation(orientation);
 	return 0;
 }
 
@@ -81,7 +87,7 @@ int orientationStatisticsCompletionHandler(struct Orientation orientation) {
 		printf("Standard Deviations\n  accel x: %f\n  accel y: %f\n accel z: %f\n  ", axs, ays, azs);
 		printf("angular x: %f\n  angular y: %f\n angular z: %f\n heading: %f\n altitude: %f\n", pxs, pys, pzs, hs, al);
 
-		canReturn = 1;
+		canReturn = -1;
 	}
 	return canReturn;
 }
@@ -90,7 +96,7 @@ void testOrientationStatistics() {
 	printf("testing orientation - stats mode\n");
 	printf("calibrating...\n");
 	calibrateSensors();
-	printf("begining orientation statistics printout of %i samples at 5kHz\n", N);
+	printf("begining orientation statistics printout of %i samples at 0.5kHz\n", N);
 	getOrientation(&orientationStatisticsCompletionHandler, 500);
 	while (!canReturn) {
 		sleep(1);
@@ -130,7 +136,7 @@ void testStaticVectorLinearMotion() {
 		//scanf("%f", vectorComponents);
 	}
 
-	struct Vec3double target = vectorFromComponents(0.0, 0.0, 0.37);
+	struct Vec3double target = vectorFromComponents(0.0, 0.0, 0.17);
 		//vectorFromComponents(vectorComponents[0], vectorComponents[1], vectorComponents[2]);
 
 	setLinearMotionVector(target);
@@ -430,10 +436,13 @@ int main(int argc, char * argv[]) {
 		else if (strcmp(argv[i], "os") == 0) {
 			testOrientationStatistics();
 		}
+		else if (strcmp(argv[i], "fm") == 0) {
+			testFlightManager();
+		}
 
 	}
 	if (argc == 1) {
-		printf("enter arguments os, x, aa, oo, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
+		printf("enter arguments fm, os, x, aa, oo, am, sav, slv, r, m, a, s, g, c, p, t <num>, o <num>, i <num>\n");
 	}
 
 

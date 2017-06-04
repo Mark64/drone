@@ -2,10 +2,11 @@
 //
 // by mark hill
 
-#include "matrix.h"
-#include "Vector.h"
 #include<math.h>
 #include<stdio.h>
+
+#include <matrix.h>
+#include <Vector.h>
 
 
 struct matrix3 matrix3x3() {

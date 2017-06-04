@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
@@ -17,7 +18,7 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include "i2cctl.h"
+#include <i2cctl.h>
 
 
 #ifdef RELEASE

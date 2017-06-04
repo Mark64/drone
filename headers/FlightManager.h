@@ -7,6 +7,13 @@
 
 #include "Vector.h"
 
+
+// this function initializes the flight manager and calibrates the sensors so
+//   that they are ready to recieve orientation data when action is requested
+// it then creates a background thread to wait and monitor changes
+// returns 0 on success, and 1 on failure
+int startFlightManager();
+
 // this function is called to signal to the motor controller that the system is ready for takeoff
 // it accepts 2 arguments:
 //   - a double representing the rate of the takeoff on a scale of 0 - 1 with 1 being the fastest

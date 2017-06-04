@@ -24,6 +24,9 @@ struct Orientation {
 	double altitude;
 };
 
+// prints out all the members of the passed in orientation struct
+void printOrientation(struct Orientation orientation);
+
 // calibrates the sensor values to enable correction for gravity and differences
 //   in the angle between sensors on the circuit layout
 void calibrateSensors();
@@ -47,7 +50,10 @@ void calibrateSensors();
 //   while the system doesn't need the orientation (while landed for example)
 // for this reason, you can stop the continuous updates by passing a -1 as the return value for
 //   your completion handler
-//   a non-negative return value indicates that the orientation updates can proceed
+//   a 0 return value indicates that the orientation updates can proceed
+//   a negative return value indicates the updates should stop
+//   a positive return value changes the update Hz to the returned value for the
+//     listener
 // since multithreaded systems can be complicated (citation needed), it is recommended that
 //   the completion handler be able to handle a few additional update calls
 //   after passing a -1 to stop updates, though this hopefully won't ever be an issue

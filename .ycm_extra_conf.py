@@ -39,6 +39,7 @@ flags = [
     '-Davionics_EXPORTS',
     '-Dcomputation_EXPORTS',
     '-Dnavigation_EXPORTS',
+    '-Iheaders/'
 ]
 
 

@@ -4,15 +4,15 @@
 #include<stdio.h>
 #include<unistd.h>
 
-#include "MotorController.h"
-#include "PWMController.h"
+#include <MotorController.h>
+#include <PWMController.h>
 
 // the arming, minimum, and maximum thrust values
 // the arming value is a PWM percentage that tells the ESC there is a proper PWM signal source attached
 // there are based on the ESC and will most likely vary with different devices
 static const double _armingThrust = 0.0600;
 static const double _minimumThrust = 0.1000 + 0.0100;
-static const double _maximumThrust = 0.6337;
+static const double _maximumThrust = 0.5337;
 static const double _thrustRange = (/*_maximumThrust*/0.6337 - /*_minimumThrust*/0.1100);
 
 // array containing the status of each ESC's status as 'armed' (value of 1, meaning ready to 
@@ -32,7 +32,7 @@ static uint8_t motorAddressLookupTable[4];
 // returns an array containing the motor addresses based with the index number being the motor number
 static uint8_t *motorAddresses() {
 	motorAddressLookupTable[0] = _motor1Address;
-       	motorAddressLookupTable[1] = _motor2Address;
+	motorAddressLookupTable[1] = _motor2Address;
 	motorAddressLookupTable[2] = _motor3Address;
 	motorAddressLookupTable[3] = _motor4Address;
 	return motorAddressLookupTable;

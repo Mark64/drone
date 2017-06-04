@@ -27,8 +27,10 @@ if ( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR} )
 	message(FATAL_ERROR "In-source builds not allowed, use the Makefile wrapper")
 endif()
 
+# optimization flags
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/flight")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/headers")
 
 # runs CMake on the subdirectory flight
 add_subdirectory(flight)
