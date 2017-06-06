@@ -1,5 +1,5 @@
 // this file contains the main function for performing tests
-// It should be fully independent of the main function for the main
+// It should be ful(1)independent of the main function for the main
 //   program
 
 #include<stdio.h>
@@ -11,13 +11,16 @@
 #include<pthread.h>
 #include<math.h>
 
-#include <i2cctl.h>
-#include <PWMController.h>
-#include <SensorManager.h>
-#include <MotorController.h>
-#include <Orientation.h>
-#include <FlightManager.h>
+#include<Eigen/Dense>
+#include<geometry.h>
+#include<i2cctl.h>
+#include<PWMController.h>
+#include<SensorManager.h>
+#include<MotorController.h>
+#include<Orientation.h>
+#include<FlightManager.h>
 
+using namespace Eigen;
 
 
 void testFlightManager() {
@@ -42,33 +45,29 @@ static int count = 0;
 
 int orientationStatisticsCompletionHandler(struct Orientation orientation) {
 	orientationValues[count] = orientation;
-	totals.acceleration.x += orientation.acceleration.x;
-	totals.acceleration.y += orientation.acceleration.y;
-	totals.acceleration.z += orientation.acceleration.z;
-	totals.gravity.x += orientation.gravity.x;
-	totals.gravity.y += orientation.gravity.y;
-	totals.gravity.z += orientation.gravity.z;
+	totals.acceleration(0) += orientation.acceleration(0);
+	totals.acceleration(1) += orientation.acceleration(1);
+	totals.acceleration(2) += orientation.acceleration(2);
+	totals.gravity(0) += orientation.gravity(0);
+	totals.gravity(1) += orientation.gravity(1);
+	totals.gravity(2) += orientation.gravity(2);
 	totals.heading += orientation.heading;
 	totals.altitude += orientation.altitude;
 	count++;
 	if (count >= N) {
-		totals.acceleration.x /= N;
-		totals.acceleration.y /= N;
-		totals.acceleration.z /= N;
-		totals.gravity.x /= N;
-		totals.gravity.y /= N;
-		totals.gravity.z /= N;
+		totals.acceleration /= N;
+		totals.gravity /= N;
 		totals.heading /= N;
 		totals.altitude /= N;
 
 		double accelerationXDiffS, accelerationYDiffS, accelerationZDiffS, angX, angY, angZ, ht, alt = 0;
 		for (int i = 0; i < N; i++) {
-			accelerationXDiffS += pow(orientationValues[i].acceleration.x - totals.acceleration.x, 2);
-			accelerationYDiffS += pow(orientationValues[i].acceleration.y - totals.acceleration.y, 2);
-			accelerationZDiffS += pow(orientationValues[i].acceleration.z - totals.acceleration.z, 2);
-			angX += pow(orientationValues[i].gravity.x - totals.gravity.x, 2);
-			angY += pow(orientationValues[i].gravity.y - totals.gravity.y, 2);
-			angZ += pow(orientationValues[i].gravity.z - totals.gravity.z, 2);
+			accelerationXDiffS += pow(orientationValues[i].acceleration(0) - totals.acceleration(0), 2);
+			accelerationYDiffS += pow(orientationValues[i].acceleration(1) - totals.acceleration(1), 2);
+			accelerationZDiffS += pow(orientationValues[i].acceleration(2) - totals.acceleration(2), 2);
+			angX += pow(orientationValues[i].gravity(0) - totals.gravity(0), 2);
+			angY += pow(orientationValues[i].gravity(1) - totals.gravity(1), 2);
+			angZ += pow(orientationValues[i].gravity(2) - totals.gravity(2), 2);
 			ht += pow(orientationValues[i].heading - totals.heading, 2);
 			alt += pow(orientationValues[i].altitude - totals.altitude, 2);
 		}
@@ -84,8 +83,8 @@ int orientationStatisticsCompletionHandler(struct Orientation orientation) {
 		printf("averages\n");
 		orientationCompletionHandler(totals);
 
-		printf("Standard Deviations\n  accel x: %f\n  accel y: %f\n accel z: %f\n  ", axs, ays, azs);
-		printf("angular x: %f\n  angular y: %f\n angular z: %f\n heading: %f\n altitude: %f\n", pxs, pys, pzs, hs, al);
+		printf("Standard Deviations\n  accel x: %f\n  accel y: %f\n  accel z: %f\n  ", axs, ays, azs);
+		printf("angular x: %f\n  angular y: %f\n  angular z: %f\n heading: %f\n altitude: %f\n", pxs, pys, pzs, hs, al);
 
 		canReturn = -1;
 	}
@@ -104,7 +103,7 @@ void testOrientationStatistics() {
 }
 
 void testEmergencyStop() {
-	printf("performing emergency stop on motors\n");
+	printf("performing emergen(1)stop on motors\n");
 	for (int i = 0; i < 4; i++) {
 		setMotorThrustPercentage(i, 0);
 	}
@@ -130,46 +129,44 @@ void testOrientationCalibration() {
 
 void testStaticVectorLinearMotion() {
 	printf("linear motion vector tester\n");
-	printf("enter linear motion vector components a x.xx, y.yy z.zz then press enter\n");
+	printf("enter linear motion vector components a x.xx, y.(1)z.(2)then press enter\n");
 
 	for (int i = 0; i < 3; i++) {
 		//scanf("%f", vectorComponents);
 	}
 
-	struct Vec3double target = vectorFromComponents(0.0, 0.0, 0.17);
-		//vectorFromComponents(vectorComponents[0], vectorComponents[1], vectorComponents[2]);
-
+	Vector3d target = Vector3d(0.0, 0.0, 0.17);
 	setLinearMotionVector(target);
 
 	char *f = NULL;
 	scanf("%s", f);
-	target = vectorFromComponents(0, 0, 0);
+	target = Vector3d(0, 0, 0);
 	setLinearMotionVector(target);
 }
 
 void testStaticVectorAngularMotion() {
 	printf("angular motion vector tester\n");
-	printf("enter angular motion vector component z.zz then press enter\n");
+	printf("enter angular motion vector component z.(2)then press enter\n");
 
 	long double vectorComponents[1];
 	for (int i = 0; i < 1; i++) {
 		scanf("%Lf", vectorComponents);
 	}
 
-	struct Vec3double target = vectorFromComponents(0, 0, -0.2);
+	Vector3d target = Vector3d(0, 0, -0.2);
 
 	setAngularMotionVector(target);
 }
 
 // gets the linear acceleration values for each axis and prints them to standard output
 void testAccel() {
-	struct Vec3double acc = accelerationVector();
+	Vector3d acc = accelerationVector();
 	printVector(acc, "acceleration");
 }
 
 // gets the angular rotation values for each axis and prints them to standard output
 void testGyro() {
-	struct Vec3double gyro = rotationVector();
+	Vector3d gyro = rotationVector();
 	printVector(gyro, "rotation");
 }
 
@@ -180,13 +177,13 @@ double averageGyro(int axis) {
 	for (int i = 0; i < n; i++) {
 		switch (axis) {
 			case 2:
-				sum += rotationVector().z;
+				sum += rotationVector()(2);
 				break;
 			case 1:
-				sum += rotationVector().y;
+				sum += rotationVector()(1);
 				break;
 			default:
-				sum += rotationVector().x;
+				sum += rotationVector()(0);
 				break;
 		}
 	}
@@ -198,8 +195,8 @@ void averageAcceleration() {
 	double sum = 0;
 	int n = 50000;
 	for (int i = 0; i < n; i++) {
-		struct Vec3double a = accelerationVector();
-		sum += a.magnitude;
+		Vector3d a = accelerationVector();
+		sum += a.norm();
 	}
 	printf("average acceleration %f\n", sum/n);
 }
@@ -283,8 +280,8 @@ void magAccelMotorTest(uint8_t address) {
 	uint8_t a = (uint8_t)((intptr_t)address);
 	while (1) {
 		usleep(500);
-		struct Vec3double acc = accelerationVector();
-		double mag = acc.magnitude;
+		Vector3d acc = accelerationVector();
+		double mag = acc.norm();
 		double thrust = pow((mag - minAccel)/diff, 2);
 		//printf("%f, %f\n", mag, thrust);
 		setMotorThrustPercentage(a, thrust);
@@ -293,9 +290,9 @@ void magAccelMotorTest(uint8_t address) {
 
 void sensorTest() {
 	while (1) {
-		struct Vec3double acceleration = accelerationVector();
-		struct Vec3double rotation = rotationVector();
-		struct Vec3double magField = magneticField();
+		Vector3d acceleration = accelerationVector();
+		Vector3d rotation = rotationVector();
+		Vector3d magField = magneticField();
 
 		printVector(acceleration, "acceleration");
 
@@ -341,7 +338,7 @@ void functionOverRange(void (*function)(uint8_t), uint8_t addresses[], uint8_t c
 }
 
 void testMagnetometer() {
-		struct Vec3double magField = magneticField();
+		Vector3d magField = magneticField();
 		printVector(magField, "magnetic field");
 //		usleep(1000000);
 }
@@ -350,14 +347,15 @@ void averageMagneticField() {
 	double x = 0, y = 0, z = 0;
 	int n = 10000;
 	for (int i = 0; i < n; i++) {
-		struct Vec3double mag = magneticField();
-		x += mag.x;
-		y += mag.y;
-		z += mag.z;
+		Vector3d mag = magneticField();
+		x += mag(0);
+		y += mag(1);
+		z += mag(2);
 	}
-	x /= n;
-	y /= n;
-	z /= n;
+	
+	Vector3d mag = Vector3d(x, y, z);
+	mag /= n;
+	
 	printf("average components:\n  x: %f\n  y: %f\n  z: %f\n", x, y, z);
 }
 

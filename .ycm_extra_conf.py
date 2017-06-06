@@ -36,10 +36,13 @@ import ycm_core
 flags = [
     '-x',
     'c',
+    'c++',
+    '-std=c++11',
     '-Davionics_EXPORTS',
     '-Dcomputation_EXPORTS',
     '-Dnavigation_EXPORTS',
-    '-Iheaders/'
+    '-Iheaders/',
+    '-Ieigen/'
 ]
 
 

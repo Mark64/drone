@@ -9,7 +9,9 @@
 
 #include<stdint.h>
 
-#include "Vector.h"
+#include<Eigen/Dense>
+
+using namespace Eigen;
 
 // Note: for the following vector functions, the vectors should follow
 //       these conventions
@@ -18,12 +20,12 @@
 // the z axis points to the top of the vehicle
 
 // returns the current target linear motion vector
-struct Vec3double getLinearMotionVector();
+Vector3d getLinearMotionVector();
 
 // sets the target linear motion vector to the supplied argument
 // the MotorController implementation handles properly setting the thrust values
 // the passed in vector should have a total magnitude less than 1 and greater than 0
-void setLinearMotionVector(struct Vec3double targetLinearMotion);
+void setLinearMotionVector(Vector3d targetLinearMotion);
 
 
 
@@ -33,12 +35,12 @@ void setLinearMotionVector(struct Vec3double targetLinearMotion);
 //   rotation in the x and y axises for the drone implementation
 
 // returns the current target angular motion vector of the vehicle
-struct Vec3double getAngularMotionVector();
+Vector3d getAngularMotionVector();
 
 // sets the target angular motion vector
 // this MotorController implementation handles power allocation to each motor
 // the passed in vector should have total magnitude 0 < mag < 1
-void setAngularMotionVector(struct Vec3double targetAngularMotion);
+void setAngularMotionVector(Vector3d targetAngularMotion);
 
 
 

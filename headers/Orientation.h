@@ -6,16 +6,18 @@
 
 #include<stdint.h>
 
-#include "Vector.h"
+#include<Eigen/Dense>
+
+using namespace Eigen;
 
 struct Orientation {
 	// this vector contains the acceleration of the vehicle relative to the ground
 	// it removes the already present acceleration from gravity
 	// given in units of g (~9.8m/s^2)
-	struct Vec3double acceleration;
+	Vector3d acceleration;
 
 	// this vector represents the gravity vector relative to the system
-	struct Vec3double gravity;
+	Vector3d gravity;
 
 	// stores the heading as degrees from north
 	double heading;

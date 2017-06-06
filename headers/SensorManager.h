@@ -10,24 +10,26 @@
 
 #include<stdint.h>
 
-#include "Vector.h"
+#include<Eigen/Dense>
+
+using namespace Eigen;
 
 
 // this collects data from the accelerometer and returns the linear acceleration vector
 // measured in units of 'g', which is acceleration at sea level or about 9.8m/s^2
-struct Vec3double accelerationVector();
+Vector3d accelerationVector();
 
-// in a similar manner to the accelerationVector() function, this 
+// in a similar manner to the accelerationVector() function, this
 //   collects sensors data and returns a vector, but of the angular
 //   rotation rate of the gyroscope instead of the linear acceleration
 // measured in units of degrees per second
-struct Vec3double rotationVector();
+Vector3d rotationVector();
 
-// this collects data from the magnetometer and returns a vector containing 
-//   the magnetic field as determined by the magnetometer 
+// this collects data from the magnetometer and returns a vector containing
+//   the magnetic field as determined by the magnetometer
 // axises are the same as the axises of the accelerometer
-// measured in units of 
-struct Vec3double magneticField();
+// measured in units of
+Vector3d magneticField();
 
 // returns the GPS position of the drone as a 2d coordinate position
 // struct Vec3double gpsPosition();
@@ -38,7 +40,7 @@ struct Vec3double magneticField();
 double barometerAltitude();
 
 // sets up all the sensors by writing their configuration registers and other setup as needed
-void initializeSensors(); 
+void initializeSensors();
 
 // puts all sensors in sleep mode to reduce power consumption
 void deinitializeSensors();

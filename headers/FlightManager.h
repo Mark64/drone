@@ -5,8 +5,9 @@
 #ifndef _FlightManager
 #define _FlightManager
 
-#include "Vector.h"
+#include<Eigen/Dense>
 
+using namespace Eigen;
 
 // this function initializes the flight manager and calibrates the sensors so
 //   that they are ready to recieve orientation data when action is requested
@@ -36,7 +37,7 @@ void land(void (*landedCompletionHandler)(double));
 //   - a Vec3double vector representing the desired linear velocity 
 //   - a function pointer to a completition handler that will be called once the vehicle reached
 //      within 10% of the desired vector components
-void setVelocityVector(struct Vec3double velocityVector, void (*velocityUpdateCompletionHandler));
+void setVelocityVector(Vector3d velocityVector, void (*velocityUpdateCompletionHandler));
 
 // this function is called to update the angular velocity vector of the system to the supplied
 //   Vec3double argument
@@ -45,7 +46,7 @@ void setVelocityVector(struct Vec3double velocityVector, void (*velocityUpdateCo
 //   - a Vec3double vector representing the desired angular velocity 
 //   - a function pointer to a completition handler that will be called once the vehicle reached
 //      within 10% of the desired vector components
-void setAngularVelocityVector(struct Vec3double angularVelocityVector, void (*angularVelocityUpdateCompletionHandler));
+void setAngularVelocityVector(Vector3d angularVelocityVector, void (*angularVelocityUpdateCompletionHandler));
 
 
 

@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 # flight controller test section
 project("Remote Drone")
 set(TEST_EXECUTABLE_NAME rocketTest)
-set(TEST_MAIN_FILE flight/FlightTest.c)
+set(TEST_MAIN_FILE flight/FlightTest.cpp)
 
 # language settings
 #   enable C99 mode
@@ -30,7 +30,7 @@ endif()
 # optimization flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/headers")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/headers" "${CMAKE_CURRENT_SOURCE_DIR}/eigen")
 
 # runs CMake on the subdirectory flight
 add_subdirectory(flight)
@@ -39,7 +39,7 @@ add_subdirectory(flight)
 add_executable(${TEST_EXECUTABLE_NAME} ${TEST_MAIN_FILE})
 
 # these libraries are built from this project's source tree and allow the project to be easily extended
-target_link_libraries(${TEST_EXECUTABLE_NAME} avionics computation navigation)
+target_link_libraries(${TEST_EXECUTABLE_NAME} avionics navigation)
 # these are system libraries that must be linked
 target_link_libraries(${TEST_EXECUTABLE_NAME} m)
 

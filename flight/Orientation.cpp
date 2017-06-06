@@ -10,22 +10,25 @@
 #include<time.h>
 #include<pthread.h>
 
-#include <SensorManager.h>
-#include <Vector.h>
-#include <matrix.h>
-#include <Orientation.h>
+#include<SensorManager.h>
+#include<Orientation.h>
+#include<Eigen/Dense>
+#include<geometry.h>
 
+using namespace Eigen;
 
 ////////////////////////
 // calibration values //
 ////////////////////////
 
 // the expected no motion value of the vector representing the force of gravity
-static struct Vec3double _stationaryAcceleration;
+static Vector3d _init_gravity;
+// the magnitude of the static gravity vector
+static double _init_gravity_length = 0;
 
 // the expected deviation from 0 angular spin as measured by
 //   the gyroscope
-static struct Vec3double _angularDrift;
+static Vector3d _angularDrift;
 
 // the inclination of the magnetic field in degrees below the
 //   horizontal line
@@ -44,7 +47,7 @@ static double _magneticFieldMagnitude = 0;
 ////////////////////////
 
 // this defines the "numVectors" value to be used during calibration
-static const uint16_t _calibrationVectorCount = 1000;
+static const uint16_t _init_samples = 1000;
 
 // this defines the "numVectors" value to be used during update computation
 // hopefully reduces noise
@@ -63,7 +66,7 @@ static const uint16_t headingUpdateFrequency = 200;
 static const uint16_t altitudeUpdateFrequency = 2;
 
 // values used in exponentially weighted moving average filter
-static const double smoothing = 0.8;
+static const double smoothing = 1.0;
 
 // values used in sensor fusion
 static const double accelerometerTrust = 0.1;
@@ -80,8 +83,19 @@ static const double magnetometerTrust = 0.2;
 // this struct contains the angular position of the device
 // it is computed through a combination of the magnetometer
 //   position and the integrated angle of the gyroscope
-static struct Orientation _currentOrientation = {.altitude = 0};
-static struct Orientation _previousOrientation = {.altitude = 0};
+static struct Orientation _currentOrientation = {
+	.acceleration = Vector3d(0, 0, 0),
+	.gravity = Vector3d(0, 0, 0), 
+	.heading = 0,
+	.altitude = 0,
+};
+static struct Orientation _previousOrientation = {
+	.acceleration = Vector3d(0, 0, 0),
+	.gravity = Vector3d(0, 0, 0), 
+	.heading = 0,
+	.altitude = 0,
+};
+
 
 // this is the mutex lock for use when reading from or writing to
 //   the Orientation structures
@@ -114,31 +128,29 @@ static void releaseLock() {
 
 // creates 'numVectors' vectors using the function passed in and returns a vector with
 //   components that are averages of the 'numVectors' vectors
-static struct Vec3double averageVector(struct Vec3double (*creationFunction)(), uint16_t numVectors) {
+static Vector3d averageVector(Vector3d (*creation)(), uint16_t numVectors) {
 	// stores the vectors created by the creationFunction
-	struct Vec3double vectorArray[numVectors];
+	Vector3d vectorArray[numVectors];
 
 	// loop through 'numVectors' times, create a vector, and add it to the array
 	for (int i = 0; i < numVectors; i++) {
-		vectorArray[i] = creationFunction();
+		vectorArray[i] = creation();
 	}
 
 	// the vector in which to store the average components
-	struct Vec3double average = vectorFromComponents(0, 0, 0);
+	Vector3d average = Vector3d(0, 0, 0);
 
 	// store the sums of the components in average
 	for (int i = 0; i < numVectors; i++) {
-		average.x += vectorArray[i].x;
-		average.y += vectorArray[i].y;
-		average.z += vectorArray[i].z;
+		for (int j = 0; j < 3; j++) {
+			average[j] += vectorArray[i][j];
+		}
 	}
 
 	// divide the totals by the count
-	average.x /= numVectors;
-	average.y /= numVectors;
-	average.z /= numVectors;
+	average /= numVectors;
 
-	return vectorFromComponents(average.x, average.y, average.z);
+	return average;
 }
 
 
@@ -151,9 +163,10 @@ static struct Vec3double averageVector(struct Vec3double (*creationFunction)(), 
 static void calibrateAccelerometer() {
 	// gets the mutex lock for writing
 	getLock();
-
-	_stationaryAcceleration = averageVector(&accelerationVector, \
-						_calibrationVectorCount);
+	_init_gravity = averageVector(&accelerationVector, _init_samples);
+	_init_gravity_length = _init_gravity.norm();
+	_currentOrientation.gravity = _init_gravity;
+	printVector(_init_gravity, "initial gravity");
 	// done writing
 	releaseLock();
 }
@@ -163,18 +176,14 @@ static void calibrateAccelerometer() {
 // DEPENDS: calibrateAccelerometer
 static void calibrateMagnetometer() {
 	// retrieve the magnetic field average vector and its angle from horizontal
-	struct Vec3double meanMagField = averageVector(&magneticField, \
-						       _calibrationVectorCount);
+	Vector3d meanField = averageVector(&magneticField, _init_samples);
 
 	// gets the mutex lock for writing
 	getLock();
 
 	// gets the inclination
-	_inclinationAngle = angleBetweenVectors(&_stationaryAcceleration, \
-						&meanMagField) - 90;
-
-	printf("inclination is %f degrees below horizontal\n", \
-	       _inclinationAngle);
+	_inclinationAngle = angle_between(meanField, _init_gravity) - 90;
+	printf("inclination is %f degrees below horizontal\n", _inclinationAngle);
 
 	// done writing
 	releaseLock();
@@ -191,22 +200,9 @@ static void calibrateGyroscope() {
 	//   rotational vector is equal to the angular drift since
 	//   the average vector should be <0, 0, 0>
 	// uses 2x vectors because I want double the data
-	uint16_t numVectors = 2 * _calibrationVectorCount;
+	uint16_t numVectors = 2 * _init_samples;
 	_angularDrift = averageVector(&rotationVector, numVectors);
 	printVector(_angularDrift, "angular drift");
-
-	// gets the mutex lock for writing
-	getLock();
-
-	_currentOrientation.gravity = vectorFromCosAndMagnitude(\
-					_stationaryAcceleration.alpha, \
-					_stationaryAcceleration.beta, \
-					_stationaryAcceleration.gamma, \
-					_stationaryAcceleration.magnitude);
-
-	printVector(_currentOrientation.gravity, "gravity");
-	// releases the mutex lock
-	releaseLock();
 }
 
 // calibrates using the above internal functions
@@ -225,13 +221,13 @@ void calibrateSensors() {
 // returns the horizonal plane angle the device is relative to
 //   a ray pointing towards magnetic North
 static double degreesFromNorth() {
-	struct Vec3double magField = averageVector(&magneticField, \
+	Vector3d magField = averageVector(&magneticField, \
 						   _updateVectorCount);
 
 	// this is actually not the correct way to get north
 	getLock();
 	_previousOrientation.heading = _currentOrientation.heading;
-	_currentOrientation.heading = angleXY(&magField);
+	_currentOrientation.heading = angleXY(magField);
 	releaseLock();
 
 	return _currentOrientation.heading;
@@ -269,80 +265,75 @@ double deltaTime() {
 }
 
 // uses the gyroscope to obtain the current angular position
-static struct Vec3double angPosGyro() {
-	struct Vec3double rotation = averageVector(&rotationVector, \
+static Vector3d angPosGyro() {
+	Vector3d rotation = averageVector(&rotationVector, \
 						   _updateVectorCount);
 
 	getLock();
 	double dt = deltaTime();
-	struct Vec3double gravity = _currentOrientation.gravity;
+	Vector3d gravity = _currentOrientation.gravity;
 	releaseLock();
 
-	double roll = (rotation.x - _angularDrift.x) * dt;
-	double pitch = (rotation.y - _angularDrift.y) * dt;
-	double yaw = (rotation.z - _angularDrift.z) * dt;
+	AngleAxisd roll = AngleAxisd((rotation(0) - _angularDrift(0)) * dt, Vector3d::UnitX());
+	AngleAxisd pitch = AngleAxisd((rotation(1) - _angularDrift(1)) * dt, Vector3d::UnitY());
+	AngleAxisd yaw = AngleAxisd((rotation(2) - _angularDrift(2)) * dt, Vector3d::UnitZ());
+	AngleAxisd rMatrix;
+	rMatrix = roll * pitch * yaw;
 
-	struct matrix3 rotationMatrix = rotationMatrix3d(roll, pitch, yaw);
-	return transformVectorByMatrix(gravity, rotationMatrix);
+	return rMatrix * gravity;
 }
 
 
 // uses the accelerometer to obtain the current angular position
-static struct Vec3double angPosAccel() {
-	struct Vec3double accel = averageVector(&accelerationVector, \
+static Vector3d angPosAccel() {
+	Vector3d accel = averageVector(&accelerationVector, \
 						_updateVectorCount);
+	double accelMag = accel.norm();
 
-	return vectorFromCosAndMagnitude(accel.alpha, accel.beta, accel.gamma, \
-					 _stationaryAcceleration.magnitude);
+	return (_init_gravity_length / accelMag) * Vector3d(accel(0), accel(1), accel(2));
 }
 
 // gets the current angular position relative to a ray pointing towards the ground
 // can use the accelerometer values, gyroscope, or a combination of the two to
 //   compute the angular position
-static struct Vec3double getAngularPosition() {
+static Vector3d getAngularPosition() {
 	// uses the gyro and accelerometer obtained position values in combination
-	struct Vec3double accelPos = angPosAccel();
-	struct Vec3double gyroPos = angPosGyro();
-	double xPos = gyroPos.x * gyroTrust + accelPos.x * accelerometerTrust;
-	double yPos = gyroPos.y * gyroTrust + accelPos.y * accelerometerTrust;
-	double zPos = gyroPos.z * gyroTrust + accelPos.z * accelerometerTrust;
+	Vector3d accelPos = angPosAccel();
+	Vector3d gyroPos = angPosGyro();
+	double xPos = gyroPos(0) * gyroTrust + accelPos(0) * accelerometerTrust;
+	double yPos = gyroPos(1) * gyroTrust + accelPos(1) * accelerometerTrust;
+	double zPos = gyroPos(2) * gyroTrust + accelPos(2) * accelerometerTrust;
 
-	double mag = vectorFromComponents(xPos, yPos, zPos).magnitude;
-	getLock();
-	double correctMag = _stationaryAcceleration.magnitude;
-	releaseLock();
-	double magCoeff = correctMag / mag;
+	double mag = Vector3d(xPos, yPos, zPos).norm();
+	double magCoeff = _init_gravity_length / mag;
 
-	struct Vec3double angPos = vectorFromComponents(xPos * magCoeff, \
-							   yPos * magCoeff, \
-							   zPos * magCoeff);
+	Vector3d angPos = magCoeff * Vector3d(xPos, yPos, zPos);
 
 	// updates the angular position
 	getLock();
 	_previousOrientation.gravity = _currentOrientation.gravity;
-	_currentOrientation.gravity = angPos;
+	_currentOrientation.gravity = smoothing * angPos + \
+				      (1 - smoothing) * _previousOrientation.gravity;
 	releaseLock();
 
 	return angPos;
 }
 
 // returns the acceleration vector adjusted for the position of ground
-static struct Vec3double correctedAcceleration() {
+static Vector3d correctedAcceleration() {
 	// retrieve the acceleration value from the sensors
-	struct Vec3double rawAcceleration = averageVector(&accelerationVector, \
-							  _updateVectorCount);
+	Vector3d rawAcceleration = averageVector(&accelerationVector, _updateVectorCount);
 	// creates a vector pointing in the direction of gravity with the magnitude measuring
 	//   in the system's stationary state
 	// needs the mutex lock
 
-	struct Vec3double acc = vectorFromSubtractingVectors(&rawAcceleration, \
-						&_currentOrientation.gravity);
+	Vector3d acc = rawAcceleration - _currentOrientation.gravity;
 
 	getLock();
 	// updates the internal orientation struct
 	_previousOrientation.acceleration = _currentOrientation.acceleration;
-	_currentOrientation.acceleration = scaleVector(&acc, smoothing) + \
-					   _previousOrientation.acceleration * (1 - smoothing);
+	_currentOrientation.acceleration = smoothing * acc + \
+					   (1 - smoothing) * _previousOrientation.acceleration;
 	releaseLock();
 
 	return acc;
@@ -525,7 +516,13 @@ struct Observer {
 
 // common orientation structure to be used by the member update functions as
 //   the sole place to store updates
-static struct Orientation _commonOrientation = {.altitude = 0};
+static struct Orientation _commonOrientation = {
+	.acceleration = Vector3d(0, 0, 0),
+	.gravity = Vector3d(0, 0, 0), 
+	.heading = 0,
+	.altitude = 0,
+};
+
 // stores the thread pointers
 // only one thread per Orientation struct member is used, which
 //   allows for multiple listener functions without wasting resources
@@ -711,8 +708,8 @@ int getOrientation(int (*completion)(struct Orientation), uint16_t updateRate) {
 void printOrientation(struct Orientation o) {
 	printVector(o.acceleration, "acceleration");
 	printVector(o.gravity, "gravity");
-	printf("degrees from North %f\n", o.heading);
-	printf("altitude %f\n", o.altitude);
+	printf("degrees from North\n %f\n", o.heading);
+	printf("altitude\n %f\n", o.altitude);
 }
 
 

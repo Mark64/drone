@@ -6,8 +6,10 @@
 #include<math.h>
 #include<stdint.h>
 
-#include <MotorController.h>
-#include <Vector.h>
+#include<MotorController.h>
+#include<Eigen/Dense>
+
+using namespace Eigen;
 
 // when setting the current motion vector, this array contains the thrust value for each motor located
 //   at the index equal to the motor number
@@ -15,8 +17,8 @@ static double _motorThrustValues[] = {0, 0, 0, 0};
 static const uint8_t _motorCount = 4;
 
 // stores the target vectors
-static struct Vec3double _targetLinearVector = {0, 0, 0, 0, 0, 0};
-static struct Vec3double _targetAngularVector = {0, 0, 0, 0, 0, 0};
+static Vector3d _targetLinearVector(0, 0, 0);
+static Vector3d _targetAngularVector(0, 0, 0);
 
 // these arrays contain the motor number(s) for each corresponding motion axis
 static const uint8_t _linearPosXMotors[] = {2};
@@ -43,22 +45,22 @@ static void updateMotion();
 
 
 // returns the current linear motion vector
-struct Vec3double getLinearMotionVector() {
+Vector3d getLinearMotionVector() {
 	return _targetLinearVector;
 }
 
 // returns the current angular motion vector
-struct Vec3double getAngularMotionVector() {
+Vector3d getAngularMotionVector() {
 	return _targetAngularVector;
 }
 
 // sets the target linear motion vector
-void setLinearMotionVector(struct Vec3double targetLinearMotion) {
-	if (targetLinearMotion.magnitude > 1) {
+void setLinearMotionVector(Vector3d targetLinearMotion) {
+	if (targetLinearMotion.norm() > 1) {
 		printf("error when setting linear motion vector. magnitude of supplied vector is greater than 1\n");
 		return;
 	}
-	if (targetLinearMotion.z < 0) {
+	if (targetLinearMotion(2) < 0) {
 		printf("target linear motion vector z component is less than 0. Impossible to perform\n");
 		return;
 	}
@@ -69,8 +71,8 @@ void setLinearMotionVector(struct Vec3double targetLinearMotion) {
 }
 
 // sets the target angular motion vector
-void setAngularMotionVector(struct Vec3double targetAngularMotion) {
-	if (targetAngularMotion.magnitude > 1) {
+void setAngularMotionVector(Vector3d targetAngularMotion) {
+	if (targetAngularMotion.norm() > 1) {
 		printf("magnitude of angular vector too large (mag > 1)\n");
 		return;
 	}
@@ -94,23 +96,23 @@ static void updateMotion() {
 
 	// since x^2 + y^2 + z^2 <= 1 (as verified by the magnitude check), adding squared values
 	//   rather than plain values will never give a thrust per motor of greater than 1
-	double xSquare = pow(_targetLinearVector.x, 2);
-	double ySquare = pow(_targetLinearVector.y, 2);
-	double zSquare = pow(_targetLinearVector.z, 2);
+	double xSquare = pow(_targetLinearVector(0), 2);
+	double ySquare = pow(_targetLinearVector(1), 2);
+	double zSquare = pow(_targetLinearVector(2), 2);
 
 
 	// linear section
 
 	// set the x values
-	const uint8_t *xMotors = _targetLinearVector.x < 0 ? _linearNegXMotors : _linearPosXMotors;
-	uint8_t xMotorCount = _targetLinearVector.x < 0 ? _linearNegXMotorCount : _linearPosXMotorCount;
+	const uint8_t *xMotors = _targetLinearVector(0) < 0 ? _linearNegXMotors : _linearPosXMotors;
+	uint8_t xMotorCount = _targetLinearVector(0) < 0 ? _linearNegXMotorCount : _linearPosXMotorCount;
 	for (int i = 0; i < xMotorCount; i++) {
 		_motorThrustValues[xMotors[i]] += xSquare;
 	}
 
 	// set the y values
-	const uint8_t *yMotors = _targetLinearVector.y < 0 ? _linearNegYMotors : _linearPosYMotors;
-	uint8_t yMotorCount = _targetLinearVector.y < 0 ? _linearNegYMotorCount : _linearPosYMotorCount;
+	const uint8_t *yMotors = _targetLinearVector(1) < 0 ? _linearNegYMotors : _linearPosYMotors;
+	uint8_t yMotorCount = _targetLinearVector(1) < 0 ? _linearNegYMotorCount : _linearPosYMotorCount;
 	for (int i = 0; i < yMotorCount; i++) {
 		_motorThrustValues[yMotors[i]] += ySquare;
 	}
@@ -126,16 +128,16 @@ static void updateMotion() {
 
 	// angular section
 
-	double zSquareAngular = pow(_targetAngularVector.z, 2);
+	double zSquareAngular = pow(_targetAngularVector(2), 2);
 
 	// set the z axis spin
 	// this is done by maintaining total additive thrust, but reducing the thrust for the
 	//   pair of motors generating balancing spin and increasing thrust for motors with
 	//   resultant spin in the desired direction
-	const uint8_t *desiredSpinMotors = _targetAngularVector.z < 0 ? _angularNegZMotors : _angularPosZMotors;
-	uint8_t desiredMotorCount = _targetAngularVector.z < 0 ? _angularNegZMotorCount : _angularPosZMotorCount;
-	const uint8_t *undesiredSpinMotors = _targetAngularVector.z < 0 ? _angularPosZMotors : _angularNegZMotors;
-	uint8_t undesiredMotorCount = _targetAngularVector.z < 0 ? _angularPosZMotorCount : _angularNegZMotorCount;
+	const uint8_t *desiredSpinMotors = _targetAngularVector(2) < 0 ? _angularNegZMotors : _angularPosZMotors;
+	uint8_t desiredMotorCount = _targetAngularVector(2) < 0 ? _angularNegZMotorCount : _angularPosZMotorCount;
+	const uint8_t *undesiredSpinMotors = _targetAngularVector(2) < 0 ? _angularPosZMotors : _angularNegZMotors;
+	uint8_t undesiredMotorCount = _targetAngularVector(2) < 0 ? _angularPosZMotorCount : _angularNegZMotorCount;
 
 	// since the angular setting is performed after the linear setting, the maximum increase and decrease
 	//   must be determined to protect against a value >1 being set
