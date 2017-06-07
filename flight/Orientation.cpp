@@ -16,6 +16,7 @@
 #include<geometry.h>
 
 using namespace Eigen;
+using namespace std;
 
 ////////////////////////
 // calibration values //
@@ -703,13 +704,21 @@ int getOrientation(int (*completion)(struct Orientation), uint16_t updateRate) {
 	return 0;
 }
 
+#define ACCELERATION_COLOR "\x1B[91m" // light red
+#define GRAVITY_COLOR "\x1B[93m" // light yellow
+#define HEADING_COLOR "\x1B[92m" // light green
+#define ALTITUDE_COLOR "\x1B[96m" // light cyan
+#define NORMAL_COLOR "\x1B[0m" // normal text color
 
 // prints out the orientation struct
 void printOrientation(struct Orientation o) {
-	printVector(o.acceleration, "acceleration");
-	printVector(o.gravity, "gravity");
-	printf("degrees from North\n %f\n", o.heading);
-	printf("altitude\n %f\n", o.altitude);
+	char a[50], g[50];
+	sprintf(a, "%sacceleration%s", ACCELERATION_COLOR, NORMAL_COLOR);
+ 	sprintf(g, "%sgravity%s", GRAVITY_COLOR, NORMAL_COLOR);	
+	printVector(o.acceleration, a);
+	printVector(o.gravity, g);
+	printf("%sdegrees from North%s\n %f\n", HEADING_COLOR, NORMAL_COLOR, o.heading);
+	printf("%saltitude%s\n %f\n", ALTITUDE_COLOR, NORMAL_COLOR, o.altitude);
 }
 
 

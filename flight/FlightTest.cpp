@@ -20,6 +20,9 @@
 #include<Orientation.h>
 #include<FlightManager.h>
 
+#define HEADING_COLOR "\x1B[1m" // bold
+#define NORMAL_COLOR "\x1B[0m" // normal text
+
 using namespace Eigen;
 
 
@@ -38,53 +41,52 @@ int orientationCompletionHandler(struct Orientation orientation) {
 }
 
 static int canReturn = 0;
-#define N 10000
-static struct Orientation orientationValues[N];
+static int N = 1000;
+static int hz = 100;
 static struct Orientation totals = {};
-static int count = 0;
+// not actually variance, variance * (n + 1)
+static struct Orientation variance = {};
+static int i = 1;
+
+Vector3d pow(Vector3d v, double e) {
+	for (int i = 0; i < 3; i++) {
+		v(i) = pow(v(i), e);
+	}
+	return v;
+}
 
 int orientationStatisticsCompletionHandler(struct Orientation orientation) {
-	orientationValues[count] = orientation;
-	totals.acceleration(0) += orientation.acceleration(0);
-	totals.acceleration(1) += orientation.acceleration(1);
-	totals.acceleration(2) += orientation.acceleration(2);
-	totals.gravity(0) += orientation.gravity(0);
-	totals.gravity(1) += orientation.gravity(1);
-	totals.gravity(2) += orientation.gravity(2);
+	variance.acceleration += \
+		pow(i * orientation.acceleration - totals.acceleration, 2) / (i * (i + 1));
+	variance.gravity += \
+		pow(i * orientation.gravity - totals.gravity, 2) / (i * (i + 1));
+	variance.heading += \
+		pow(i * orientation.heading - totals.heading, 2) / (i * (i + 1));
+	variance.altitude += \
+		pow(i * orientation.altitude - totals.altitude, 2) / (i * (i + 1));	
+
+	totals.acceleration += orientation.acceleration;
+	totals.gravity += orientation.gravity;
 	totals.heading += orientation.heading;
 	totals.altitude += orientation.altitude;
-	count++;
-	if (count >= N) {
+
+	i++;
+	if (i == N) {
 		totals.acceleration /= N;
 		totals.gravity /= N;
 		totals.heading /= N;
 		totals.altitude /= N;
 
-		double accelerationXDiffS, accelerationYDiffS, accelerationZDiffS, angX, angY, angZ, ht, alt = 0;
-		for (int i = 0; i < N; i++) {
-			accelerationXDiffS += pow(orientationValues[i].acceleration(0) - totals.acceleration(0), 2);
-			accelerationYDiffS += pow(orientationValues[i].acceleration(1) - totals.acceleration(1), 2);
-			accelerationZDiffS += pow(orientationValues[i].acceleration(2) - totals.acceleration(2), 2);
-			angX += pow(orientationValues[i].gravity(0) - totals.gravity(0), 2);
-			angY += pow(orientationValues[i].gravity(1) - totals.gravity(1), 2);
-			angZ += pow(orientationValues[i].gravity(2) - totals.gravity(2), 2);
-			ht += pow(orientationValues[i].heading - totals.heading, 2);
-			alt += pow(orientationValues[i].altitude - totals.altitude, 2);
-		}
-		double axs = pow(accelerationXDiffS / (N - 1), 0.5);
-		double ays = pow(accelerationYDiffS / (N - 1), 0.5);
-		double azs = pow(accelerationZDiffS / (N - 1), 0.5);
-		double pxs = pow(angX / (N - 1), 0.5);
-		double pys = pow(angY / (N - 1), 0.5);
-		double pzs = pow(angZ / (N - 1), 0.5);
-		double hs = pow(ht / (N - 1), 0.5);
-		double al = pow(alt / (N - 1), 0.5);
+		variance.acceleration = pow(variance.acceleration / (i + 1), 0.5);
+		variance.gravity = pow(variance.gravity / (i + 1), 0.5);
+		variance.heading = pow(variance.heading / (i + 1), 0.5);
+		variance.altitude = pow(variance.altitude / (i + 1), 0.5);
 
-		printf("averages\n");
+		printf("%saverages%s\n", HEADING_COLOR, NORMAL_COLOR);
 		orientationCompletionHandler(totals);
 
-		printf("Standard Deviations\n  accel x: %f\n  accel y: %f\n  accel z: %f\n  ", axs, ays, azs);
-		printf("angular x: %f\n  angular y: %f\n  angular z: %f\n heading: %f\n altitude: %f\n", pxs, pys, pzs, hs, al);
+		printf("%sstandard deviations%s\n", HEADING_COLOR, NORMAL_COLOR);
+		orientationCompletionHandler(variance);
 
 		canReturn = -1;
 	}
@@ -95,8 +97,8 @@ void testOrientationStatistics() {
 	printf("testing orientation - stats mode\n");
 	printf("calibrating...\n");
 	calibrateSensors();
-	printf("begining orientation statistics printout of %i samples at 0.5kHz\n", N);
-	getOrientation(&orientationStatisticsCompletionHandler, 500);
+	printf("begining orientation statistics printout of %i samples at %iHz\n", N, hz);
+	getOrientation(&orientationStatisticsCompletionHandler, hz);
 	while (!canReturn) {
 		sleep(1);
 	}

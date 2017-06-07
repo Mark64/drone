@@ -4,7 +4,7 @@
 
 #include<Eigen/Dense>
 #include<math.h>
-#include<iostream>
+#include<stdio.h>
 
 using namespace Eigen;
 
