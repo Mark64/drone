@@ -62,7 +62,7 @@ static const uint16_t headingUpdateFrequency = 60000;
 static const uint16_t altitudeUpdateFrequency = 2;
 
 // values used in exponentially weighted moving average filter
-static const double smoothing = 0.7;
+static const double smoothing = 0.4;
 
 // values used in sensor fusion
 static const double gyroTrust = 0.9;
@@ -569,8 +569,6 @@ void *updateOrientation(void *input) {
 	uint32_t waitTimeMicroseconds = 1000000/threadInfo.frequency;
 	int completion = 0;
 	while (1) {
-		usleep(waitTimeMicroseconds);
-
 		completion = threadInfo.completionHandler(_commonOrientation);
 
 		if (completion < 0) {
@@ -583,6 +581,8 @@ void *updateOrientation(void *input) {
 			threadInfo.frequency = completion;
 			waitTimeMicroseconds = 1000000.0/completion;
 		}
+
+		usleep(waitTimeMicroseconds);
 	}
 
 	return NULL;

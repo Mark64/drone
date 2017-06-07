@@ -30,7 +30,7 @@ endif()
 # optimization flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/headers" "${CMAKE_CURRENT_SOURCE_DIR}/eigen")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/headers" "${CMAKE_CURRENT_SOURCE_DIR}/headers/eigen")
 
 # runs CMake on the subdirectory flight
 add_subdirectory(flight)

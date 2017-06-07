@@ -6,10 +6,12 @@
 SHELL := /bin/bash
 RM    := rm -rf
 MKDIR := mkdir -p
-EXECUTABLE_NAME := rocketTest
-
+TEST_EXECUTABLE_NAME := rocketTest
 CMAKE_TOOLCHAIN_FILE := toolchainRaspberryPi0.cmake
-INSTALL_TEST := installTest
+
+SCRIPTS_DIR := scripts
+TOOLCHAIN_INSTALL_SCRIPT := $(SCRIPTS_DIR)/installRPIToolchain
+TEST_INSTALL_SCRIPT := $(SCRIPTS_DIR)/installTest
 
 all: ./build/Makefile
 	@ $(MAKE) -C build
@@ -18,15 +20,13 @@ all: ./build/Makefile
 	@ (cd build > /dev/null 2>&1 && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE) ..)
 
 toolchain:
-	# installing the Raspberry Pi toolchain as defined by the "installRPIToolchain" script
-	@ (sh installRPIToolchain)
+	@ (sh $(TOOLCHAIN_INSTALL_SCRIPT))
 
 install: all
-	# copying executable and libraries to drone
-	@ (sh $(INSTALL_TEST))
+	@ (sh $(TEST_INSTALL_SCRIPT))
 
 test: install
-	@ (ssh rocket "rocketTest")
+	@ (ssh rocket $(TEST_EXECUTABLE_NAME))
 
 distclean:
 	@  ($(MKDIR) build > /dev/null)

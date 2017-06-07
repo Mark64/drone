@@ -5,13 +5,15 @@ EXECUTABLE=rocketTest
 LIBRARIES=lib*.so
 
 # this script copies and installs the software to the drone
+printf "transfering libraries and executables to system\n"
 scp ./build/$EXECUTABLE $DEVICE_NAME:~
 scp ./build/flight/lib*.so $DEVICE_NAME:~
+printf "installing files\n"
 ssh $DEVICE_NAME \
 	"sudo cp $EXECUTABLE /usr/local/bin; \
 	 sudo cp $LIBRARIES /usr/lib;        \
 	 rm $EXECUTABLE $LIBRARIES;          "
-
+printf "done\n"
 
 
 

@@ -42,7 +42,7 @@ flags = [
     '-Dcomputation_EXPORTS',
     '-Dnavigation_EXPORTS',
     '-Iheaders/',
-    '-Ieigen/'
+    '-Iheaders/eigen/'
 ]
 
 
