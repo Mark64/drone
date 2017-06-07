@@ -56,7 +56,6 @@ void initializeSensors() {
 	//
 	// accelerometer section
 	//
-
 	// enabled auto increment on the register addresses
 	uint8_t autoIncrementRegister[1] = {0x12};
 	uint8_t autoIncrement = 0x04;
@@ -267,8 +266,7 @@ Vector3d threeAxisVector(uint16_t address, uint8_t *registers, \
 			 uint8_t numRegisters, uint8_t bytesPerValue, \
 			 uint8_t autoIncrementEnabled, uint8_t highByteFirst, \
 			 double divisor) {
-	Vector3d v;
-	v << 0, 0, 0;
+	Vector3d v = Vector3d(0, 0, 0);
 	if (numRegisters / bytesPerValue > 3 || \
 	    numRegisters / bytesPerValue <= 0) {
 		printf("Invalid register count for function threeAxisVector\n");
@@ -292,11 +290,8 @@ Vector3d threeAxisVector(uint16_t address, uint8_t *registers, \
 	int rawy = signedValue(vectorValues[1], 16);
 	int rawz = signedValue(vectorValues[2], 16);
 
-	double x = rawx / divisor;
-	double y = rawy / divisor;
-	double z = rawz / divisor;
+	v = Vector3d(rawx, rawy, rawz) / divisor;
 
-	v << x, y, z;
 	return v;
 }
 

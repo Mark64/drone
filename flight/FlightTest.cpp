@@ -279,14 +279,13 @@ void magAccelMotorTest(uint8_t address) {
 	double maxAccel = 2.6;
 	double minAccel = 0.0;
 	double diff = maxAccel - minAccel;
-	uint8_t a = (uint8_t)((intptr_t)address);
 	while (1) {
 		usleep(500);
 		Vector3d acc = accelerationVector();
 		double mag = acc.norm();
 		double thrust = pow((mag - minAccel)/diff, 2);
 		//printf("%f, %f\n", mag, thrust);
-		setMotorThrustPercentage(a, thrust);
+		setMotorThrustPercentage(address, thrust);
 	}
 }
 

@@ -27,10 +27,6 @@ static Vector3d _init_gravity;
 // the magnitude of the static gravity vector
 static double _init_gravity_length = 0;
 
-// the expected deviation from 0 angular spin as measured by
-//   the gyroscope
-static Vector3d _angularDrift;
-
 // the inclination of the magnetic field in degrees below the
 //   horizontal line
 static double _inclinationAngle = 0;
@@ -52,7 +48,7 @@ static const uint16_t _init_samples = 1000;
 
 // this defines the "numVectors" value to be used during update computation
 // hopefully reduces noise
-static const uint16_t _updateVectorCount = 3;
+static const uint16_t _update_samples = 3;
 
 // this variable is a flag indicating whether updates should
 //   be run or that the system should be put to sleep
@@ -61,18 +57,15 @@ static int volatile shouldUpdate = 0;
 // these following values indicate the frequency with which
 //   to run their corresponding functions
 // values are in Hz
-static const uint16_t accelerationUpdateFrequency = 200;
-static const uint16_t angularPositionUpdateFrequency = 400;
-static const uint16_t headingUpdateFrequency = 200;
+static const uint16_t accelerationUpdateFrequency = 60000;
+static const uint16_t headingUpdateFrequency = 60000;
 static const uint16_t altitudeUpdateFrequency = 2;
 
 // values used in exponentially weighted moving average filter
-static const double smoothing = 1.0;
+static const double smoothing = 0.7;
 
 // values used in sensor fusion
-static const double accelerometerTrust = 0.1;
 static const double gyroTrust = 0.9;
-static const double magnetometerTrust = 0.2;
 
 /////////////////////////
 
@@ -190,29 +183,10 @@ static void calibrateMagnetometer() {
 	releaseLock();
 }
 
-// gets the expected angular drift of the gyroscope
-//   to use as an expected value in calculations
-// gives value in degrees per second
-// retrieves the current angular position relative to ground
-// DEPENDS: calibrateAccelerometer, calibrateMagnetometer
-static void calibrateGyroscope() {
-	// the angular drift has the unique property that, when
-	//   the device is assumed to be motionless, the average
-	//   rotational vector is equal to the angular drift since
-	//   the average vector should be <0, 0, 0>
-	// uses 2x vectors because I want double the data
-	uint16_t numVectors = 2 * _init_samples;
-	_angularDrift = averageVector(&rotationVector, numVectors);
-	printVector(_angularDrift, "angular drift");
-}
-
 // calibrates using the above internal functions
 void calibrateSensors() {
-	// calculates the magnetic field inclination and stores it in
-	//   the static variable inclination
 	calibrateAccelerometer();
 	calibrateMagnetometer();
-	calibrateGyroscope();
 }
 
 
@@ -223,12 +197,13 @@ void calibrateSensors() {
 //   a ray pointing towards magnetic North
 static double degreesFromNorth() {
 	Vector3d magField = averageVector(&magneticField, \
-						   _updateVectorCount);
+						   _update_samples);
 
 	// this is actually not the correct way to get north
 	getLock();
 	_previousOrientation.heading = _currentOrientation.heading;
-	_currentOrientation.heading = angleXY(magField);
+	_currentOrientation.heading = smoothing * angleXY(magField) + \
+				      (1 - smoothing) * _previousOrientation.heading;
 	releaseLock();
 
 	return _currentOrientation.heading;
@@ -268,42 +243,33 @@ double deltaTime() {
 // uses the gyroscope to obtain the current angular position
 static Vector3d angPosGyro() {
 	Vector3d rotation = averageVector(&rotationVector, \
-						   _updateVectorCount);
+						   _update_samples);
 
 	getLock();
 	double dt = deltaTime();
 	Vector3d gravity = _currentOrientation.gravity;
 	releaseLock();
 
-	AngleAxisd roll = AngleAxisd((rotation(0) - _angularDrift(0)) * dt, Vector3d::UnitX());
-	AngleAxisd pitch = AngleAxisd((rotation(1) - _angularDrift(1)) * dt, Vector3d::UnitY());
-	AngleAxisd yaw = AngleAxisd((rotation(2) - _angularDrift(2)) * dt, Vector3d::UnitZ());
+	rotation *= dt;
+	AngleAxisd roll = AngleAxisd(rotation(0), Vector3d::UnitX());
+	AngleAxisd pitch = AngleAxisd(rotation(1), Vector3d::UnitY());
+	AngleAxisd yaw = AngleAxisd(rotation(2), Vector3d::UnitZ());
 	AngleAxisd rMatrix;
 	rMatrix = roll * pitch * yaw;
 
 	return rMatrix * gravity;
 }
 
-
-// uses the accelerometer to obtain the current angular position
-static Vector3d angPosAccel() {
-	Vector3d accel = averageVector(&accelerationVector, \
-						_updateVectorCount);
-	double accelMag = accel.norm();
-
-	return (_init_gravity_length / accelMag) * Vector3d(accel(0), accel(1), accel(2));
-}
-
 // gets the current angular position relative to a ray pointing towards the ground
-// can use the accelerometer values, gyroscope, or a combination of the two to
-//   compute the angular position
-static Vector3d getAngularPosition() {
+// uses sensor fusion of the accelerometer and gyro to compute the angular position
+// expects a vector containing the accelerometer vector as the input
+void getAngularPosition(Vector3d accel) {
 	// uses the gyro and accelerometer obtained position values in combination
-	Vector3d accelPos = angPosAccel();
+	Vector3d accelPos = _init_gravity_length * accel / accel.norm();
 	Vector3d gyroPos = angPosGyro();
-	double xPos = gyroPos(0) * gyroTrust + accelPos(0) * accelerometerTrust;
-	double yPos = gyroPos(1) * gyroTrust + accelPos(1) * accelerometerTrust;
-	double zPos = gyroPos(2) * gyroTrust + accelPos(2) * accelerometerTrust;
+	double xPos = gyroPos(0) * gyroTrust + accelPos(0) * (1 - gyroTrust);
+	double yPos = gyroPos(1) * gyroTrust + accelPos(1) * (1 - gyroTrust);
+	double zPos = gyroPos(2) * gyroTrust + accelPos(2) * (1 - gyroTrust);
 
 	double mag = Vector3d(xPos, yPos, zPos).norm();
 	double magCoeff = _init_gravity_length / mag;
@@ -313,17 +279,18 @@ static Vector3d getAngularPosition() {
 	// updates the angular position
 	getLock();
 	_previousOrientation.gravity = _currentOrientation.gravity;
-	_currentOrientation.gravity = smoothing * angPos + \
-				      (1 - smoothing) * _previousOrientation.gravity;
+	_currentOrientation.gravity = smoothing * angPos + (1 - smoothing) * _previousOrientation.gravity;
 	releaseLock();
-
-	return angPos;
 }
 
 // returns the acceleration vector adjusted for the position of ground
-static Vector3d correctedAcceleration() {
+void getAcceleration() {
+
 	// retrieve the acceleration value from the sensors
-	Vector3d rawAcceleration = averageVector(&accelerationVector, _updateVectorCount);
+	Vector3d rawAcceleration = averageVector(&accelerationVector, _update_samples);
+	// compute the angular position to obtain the gravity vector used later
+	getAngularPosition(rawAcceleration);
+	
 	// creates a vector pointing in the direction of gravity with the magnitude measuring
 	//   in the system's stationary state
 	// needs the mutex lock
@@ -333,11 +300,8 @@ static Vector3d correctedAcceleration() {
 	getLock();
 	// updates the internal orientation struct
 	_previousOrientation.acceleration = _currentOrientation.acceleration;
-	_currentOrientation.acceleration = smoothing * acc + \
-					   (1 - smoothing) * _previousOrientation.acceleration;
+	_currentOrientation.acceleration = smoothing * acc + (1 - smoothing) * _previousOrientation.acceleration;
 	releaseLock();
-
-	return acc;
 }
 
 // yes, I know this seems redunant, but it allow for easier modification
@@ -361,8 +325,7 @@ static double getAltitude() {
 //   thread into a sleep state, waking up every few seconds to
 //   check the shouldUpdate flag
 // expects an Orientation struct pointer as the input
-// returns NULL when it does return
-// updates the acceleration member of the struct input
+// updates the acceleration and gravity member of the struct input
 static void *updateAcceleration(void *input) {
 	if (input == NULL) {
 		printf("invalid input to updateAcceleration\n");
@@ -382,43 +345,11 @@ static void *updateAcceleration(void *input) {
 			usleep(1500000);
 		}
 
-		orientation->acceleration = correctedAcceleration();
-
-		// sleep to prevent CPU waste since the
-		//   sensors only have limited update frequency
-		usleep(sleepTime);
-	}
-	return NULL;
-}
-
-// this function is executed infinitely while shouldUpdate
-//   is a positive value
-// setting shouldUpdate to 0 causes this function to put its
-//   thread into a sleep state, waking up every few seconds to
-//   check the shouldUpdate flag
-// expects an Orientation struct pointer as the input
-// returns NULL when it does return
-// updates the angular position member of the struct input
-static void *updateAngularPosition(void *input) {
-	if (input == NULL) {
-		printf("invalid input to updateAngularPosition\n");
-		return NULL;
-	}
-
-	// this is the pointer the orientation struct which
-	//   this function will record updates to
-	struct Orientation *orientation = (struct Orientation *)(input);
-	// stores the time the function should sleep between
-	//   updates in microseconds
-	uint16_t sleepTime = 1000000/angularPositionUpdateFrequency;
-
-	while (1) {
-		while (!shouldUpdate) {
-			// sleeps for 1.5 seconds
-			usleep(1500000);
-		}
-
-		orientation->gravity = getAngularPosition();
+		getAcceleration();
+		getLock();
+		orientation->gravity = _currentOrientation.gravity;
+		orientation->acceleration = _currentOrientation.acceleration;
+		releaseLock();
 
 		// sleep to prevent CPU waste since the
 		//   sensors only have limited update frequency
@@ -434,7 +365,6 @@ static void *updateAngularPosition(void *input) {
 //   thread into a sleep state, waking up every few seconds to
 //   check the shouldUpdate flag
 // expects an Orientation struct pointer as the input
-// returns NULL when it does return
 // updates the heading member of the struct input
 static void *updateHeading(void *input) {
 	if (input == NULL) {
@@ -472,7 +402,6 @@ static void *updateHeading(void *input) {
 //   thread into a sleep state, waking up every few seconds to
 //   check the shouldUpdate flag
 // expects an Orientation struct pointer as the input
-// returns NULL when it does return
 // updates the altitude member of the struct input
 static void *updateAltitude(void *input) {
 	if (input == NULL) {
@@ -528,7 +457,6 @@ static struct Orientation _commonOrientation = {
 // only one thread per Orientation struct member is used, which
 //   allows for multiple listener functions without wasting resources
 static pthread_t _accelerationThread = 0;
-static pthread_t _angularPositionThread = 0;
 static pthread_t _altitudeThread = 0;
 static pthread_t _headingThread = 0;
 // stores the current number of listeners as an integer
@@ -546,11 +474,6 @@ int createStructMemberUpdateThreads() {
 	if (_accelerationThread == 0) {
 		failure |= pthread_create(&_accelerationThread, NULL, \
 					  &updateAcceleration, \
-					  (void *)&_commonOrientation);
-	}
-	if (_angularPositionThread == 0) {
-		failure |= pthread_create(&_angularPositionThread, NULL, \
-					  &updateAngularPosition, \
 					  (void *)&_commonOrientation);
 	}
 	if (_altitudeThread == 0) {
@@ -590,16 +513,6 @@ int killStructMemberUpdateThreads() {
 		}
 		else {
 			printf("failed to cancel acceleration thread\n");
-			returnValue = -1;
-		}
-	}
-	if (_angularPositionThread != 0) {
-		int failure = pthread_cancel(_angularPositionThread);
-		if (!failure) {
-			_angularPositionThread = 0;
-		}
-		else {
-			printf("failed to cancel angular position thread\n");
 			returnValue = -1;
 		}
 	}
@@ -704,16 +617,16 @@ int getOrientation(int (*completion)(struct Orientation), uint16_t updateRate) {
 	return 0;
 }
 
-#define ACCELERATION_COLOR "\x1B[91m" // light red
-#define GRAVITY_COLOR "\x1B[93m" // light yellow
-#define HEADING_COLOR "\x1B[92m" // light green
-#define ALTITUDE_COLOR "\x1B[96m" // light cyan
+#define ACCELERATION_COLOR "\x1B[1m" // bold
+#define GRAVITY_COLOR "\x1B[1m" // bold
+#define HEADING_COLOR "\x1B[1m" // bold
+#define ALTITUDE_COLOR "\x1B[1m" // bold
 #define NORMAL_COLOR "\x1B[0m" // normal text color
 
 // prints out the orientation struct
 void printOrientation(struct Orientation o) {
 	char a[50], g[50];
-	sprintf(a, "%sacceleration%s", ACCELERATION_COLOR, NORMAL_COLOR);
+	sprintf(a, "\n%sacceleration%s", ACCELERATION_COLOR, NORMAL_COLOR);
  	sprintf(g, "%sgravity%s", GRAVITY_COLOR, NORMAL_COLOR);	
 	printVector(o.acceleration, a);
 	printVector(o.gravity, g);
