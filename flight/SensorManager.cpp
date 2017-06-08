@@ -298,7 +298,7 @@ Vector3d magneticField() {
 	int divisor = 10;
 
 	// create an even more user-friendly magnetic field vector
-	Vector3d magField = threeAxisVector(magAddress, 0x00, divisor);
+	Vector3d magField = threeAxisVector(magAddress, 0x01, divisor);
 
 	// since the magnetometer is actually mounted upside down, the z axis value must be flipped
 	magField(2) *= -1;

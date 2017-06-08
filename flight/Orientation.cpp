@@ -61,7 +61,7 @@ static int volatile shouldUpdate = 0;
 //   to run their corresponding functions
 // values are in Hz
 static const uint16_t accelerationUpdateFrequency = 400;
-static const uint16_t headingUpdateFrequency = 9;
+static const uint16_t headingUpdateFrequency = 30;
 static const uint16_t altitudeUpdateFrequency = 30;
 
 // values used in exponentially weighted moving average filter
@@ -221,8 +221,7 @@ void calibrateSensors() {
 // returns the horizonal plane angle the device is relative to
 //   a ray pointing towards magnetic North
 static double degreesFromNorth() {
-	Vector3d magField = averageVector(&magneticField, \
-						   _update_samples);
+	Vector3d magField = averageVector(&magneticField, _update_samples);
 
 	// this is actually not the correct way to get north
 	getLock();
