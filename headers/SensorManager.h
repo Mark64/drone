@@ -40,7 +40,7 @@ Vector3d magneticField();
 double barometerAltitude();
 
 // sets up all the sensors by writing their configuration registers and other setup as needed
-void initializeSensors();
+int initializeSensors();
 
 // puts all sensors in sleep mode to reduce power consumption
 void deinitializeSensors();

@@ -10,7 +10,6 @@
 #include <MotorController.h>
 
 
-
 struct Orientation desiredOrientation = {};
 struct Orientation currentOrientation = {};
 

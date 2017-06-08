@@ -1,6 +1,8 @@
 // header file containing common linear algebra geometry inlines
 //
 // by Mark Hill
+#ifndef _geometry
+#define _geometry
 
 #include<Eigen/Dense>
 #include<math.h>
@@ -37,3 +39,8 @@ inline void printVector(Vector3d a, const char str[]) {
 }
 
 
+
+
+
+
+#endif

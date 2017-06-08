@@ -41,8 +41,8 @@ int orientationCompletionHandler(struct Orientation orientation) {
 }
 
 static int canReturn = 0;
-static int N = 1000;
-static int hz = 100;
+static int N = 100;
+static int hz = 8;
 static struct Orientation totals = {};
 // not actually variance, variance * (n + 1)
 static struct Orientation variance = {};
@@ -77,10 +77,10 @@ int orientationStatisticsCompletionHandler(struct Orientation orientation) {
 		totals.heading /= N;
 		totals.altitude /= N;
 
-		variance.acceleration = pow(variance.acceleration / (i + 1), 0.5);
-		variance.gravity = pow(variance.gravity / (i + 1), 0.5);
-		variance.heading = pow(variance.heading / (i + 1), 0.5);
-		variance.altitude = pow(variance.altitude / (i + 1), 0.5);
+		variance.acceleration = pow(variance.acceleration / (i - 1), 0.5);
+		variance.gravity = pow(variance.gravity / (i - 1), 0.5);
+		variance.heading = pow(variance.heading / (i - 1), 0.5);
+		variance.altitude = pow(variance.altitude / (i - 1), 0.5);
 
 		printf("%saverages%s\n", HEADING_COLOR, NORMAL_COLOR);
 		orientationCompletionHandler(totals);
@@ -371,7 +371,6 @@ void testBarometer() {
 }
 
 int main(int argc, char * argv[]) {
-
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "a") == 0) {
 			testAccel();

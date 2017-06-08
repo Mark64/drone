@@ -27,6 +27,9 @@ static Vector3d _init_gravity;
 // the magnitude of the static gravity vector
 static double _init_gravity_length = 0;
 
+// the average angular error, which is subtracted from any samples
+static Vector3d _angular_drift;
+
 // the inclination of the magnetic field in degrees below the
 //   horizontal line
 static double _inclinationAngle = 0;
@@ -44,11 +47,11 @@ static double _magneticFieldMagnitude = 0;
 ////////////////////////
 
 // this defines the "numVectors" value to be used during calibration
-static const uint16_t _init_samples = 1000;
+static const uint16_t _init_samples = 500;
 
 // this defines the "numVectors" value to be used during update computation
 // hopefully reduces noise
-static const uint16_t _update_samples = 3;
+static const uint16_t _update_samples = 2;
 
 // this variable is a flag indicating whether updates should
 //   be run or that the system should be put to sleep
@@ -57,12 +60,12 @@ static int volatile shouldUpdate = 0;
 // these following values indicate the frequency with which
 //   to run their corresponding functions
 // values are in Hz
-static const uint16_t accelerationUpdateFrequency = 60000;
-static const uint16_t headingUpdateFrequency = 60000;
-static const uint16_t altitudeUpdateFrequency = 2;
+static const uint16_t accelerationUpdateFrequency = 400;
+static const uint16_t headingUpdateFrequency = 9;
+static const uint16_t altitudeUpdateFrequency = 30;
 
 // values used in exponentially weighted moving average filter
-static const double smoothing = 0.4;
+static const double smoothing = 0.8;
 
 // values used in sensor fusion
 static const double gyroTrust = 0.9;
@@ -98,6 +101,14 @@ static int _mutex_created = 0;
 
 ////////////////////////
 
+
+////////////////////////
+//     functions      //
+////////////////////////
+
+static void getAcceleration();
+static double getAltitude();
+static double degreesFromNorth();
 
 
 
@@ -165,6 +176,14 @@ static void calibrateAccelerometer() {
 	releaseLock();
 }
 
+// gets the expected angular drift (offset error)
+static void calibrateGyroscope() {
+	getLock();
+	_angular_drift = averageVector(&rotationVector, _init_samples);
+	printVector(_angular_drift, "angular drift");
+	releaseLock();
+}
+
 // gets the inclination of the magnetic field
 //   and returns a decimal value in degrees
 // DEPENDS: calibrateAccelerometer
@@ -186,7 +205,13 @@ static void calibrateMagnetometer() {
 // calibrates using the above internal functions
 void calibrateSensors() {
 	calibrateAccelerometer();
+	calibrateGyroscope();
 	calibrateMagnetometer();
+
+	// populates the current orientation object
+	getAcceleration();
+	degreesFromNorth();
+	getAltitude();
 }
 
 
@@ -209,13 +234,11 @@ static double degreesFromNorth() {
 	return _currentOrientation.heading;
 }
 
-// this variable stores the time the angularPosition was last updated in microseconds
-// this is done because the rotation angle must be found using a vector
-double lastUpdateTime = 0;
-// returns the difference in the current time as compared to the variable
-//   lastUpdateTime
+// returns the difference in the current time in seconds as compared to
+//   the argument, which should be a pointer to a double containing the current
+//   time in seconds
 // for use only with the getAngularPosition function
-double deltaTime() {
+double deltaTime(double *prev) {
 	struct timespec currentTime;
 	int failed = clock_gettime(CLOCK_MONOTONIC, &currentTime);
 	if (failed) {
@@ -225,28 +248,32 @@ double deltaTime() {
 
 	double nanoSecondTime = currentTime.tv_sec + \
 				(double)(currentTime.tv_nsec)/1000000000.0;
-	double deltaTime = nanoSecondTime - lastUpdateTime;
+	double deltaTime = nanoSecondTime - *prev;
 
 	// which means that this is the first time this function has been called,
 	//   so there was really no comparison value in the first place
 	// have to include floating point tolerance when dealing with small
 	// values
-	if (lastUpdateTime <= 0.00001) {
-		lastUpdateTime = nanoSecondTime;
+	if (*prev <= 0.00001) {
+		*prev = nanoSecondTime;
 		return 0;
 	}
 
-	lastUpdateTime = nanoSecondTime;
+	*prev = nanoSecondTime;
 	return deltaTime;
 }
+
+// this variable stores the time the angularPosition was last updated in nanoseconds
+// this is done because the rotation angle must be found using a vector
+double angUpdateTime = 0;
 
 // uses the gyroscope to obtain the current angular position
 static Vector3d angPosGyro() {
 	Vector3d rotation = averageVector(&rotationVector, \
-						   _update_samples);
+						   _update_samples) - _angular_drift;
 
 	getLock();
-	double dt = deltaTime();
+	double dt = deltaTime(&angUpdateTime);
 	Vector3d gravity = _currentOrientation.gravity;
 	releaseLock();
 
@@ -324,20 +351,15 @@ static double getAltitude() {
 // setting shouldUpdate to 0 causes this function to put its
 //   thread into a sleep state, waking up every few seconds to
 //   check the shouldUpdate flag
-// expects an Orientation struct pointer as the input
 // updates the acceleration and gravity member of the struct input
 static void *updateAcceleration(void *input) {
-	if (input == NULL) {
-		printf("invalid input to updateAcceleration\n");
-		return NULL;
-	}
-
 	// this is the pointer the orientation struct which
 	//   this function will record updates to
 	struct Orientation *orientation = (struct Orientation *)(input);
 	// stores the time the function should sleep between
 	//   updates in microseconds
-	uint16_t sleepTime = (uint16_t)(1000000.0/accelerationUpdateFrequency);
+	uint32_t period = 1000000 / accelerationUpdateFrequency;
+	double lastUpdateTime = 0;
 
 	while (1) {
 		while (!shouldUpdate) {
@@ -345,15 +367,11 @@ static void *updateAcceleration(void *input) {
 			usleep(1500000);
 		}
 
+		uint32_t sleepTime = period - deltaTime(&lastUpdateTime) * 1000000;
+		if (sleepTime > 0)
+			usleep(sleepTime);
+		
 		getAcceleration();
-		getLock();
-		orientation->gravity = _currentOrientation.gravity;
-		orientation->acceleration = _currentOrientation.acceleration;
-		releaseLock();
-
-		// sleep to prevent CPU waste since the
-		//   sensors only have limited update frequency
-		usleep(sleepTime);
 	}
 	return NULL;
 }
@@ -364,20 +382,12 @@ static void *updateAcceleration(void *input) {
 // setting shouldUpdate to 0 causes this function to put its
 //   thread into a sleep state, waking up every few seconds to
 //   check the shouldUpdate flag
-// expects an Orientation struct pointer as the input
 // updates the heading member of the struct input
 static void *updateHeading(void *input) {
-	if (input == NULL) {
-		printf("invalid input to updateHeading\n");
-		return NULL;
-	}
-
-	// this is the pointer the orientation struct which
-	//   this function will record updates to
-	struct Orientation *orientation = (struct Orientation *)(input);
 	// stores the time the function should sleep between
 	//   updates in microseconds
-	uint16_t sleepTime = 1000000/headingUpdateFrequency;
+	uint32_t period = 1000000 / accelerationUpdateFrequency;
+	double lastUpdateTime = 0;
 
 	while (1) {
 		while (!shouldUpdate) {
@@ -385,11 +395,11 @@ static void *updateHeading(void *input) {
 			usleep(1500000);
 		}
 
-		orientation->heading = degreesFromNorth();
-
-		// sleep to prevent CPU waste since the
-		//   sensors only have limited update frequency
-		usleep(sleepTime);
+		uint32_t sleepTime = period - deltaTime(&lastUpdateTime) * 1000000;
+		if (sleepTime > 0)
+			usleep(sleepTime);
+		
+		degreesFromNorth();
 	}
 	return NULL;
 }
@@ -401,20 +411,12 @@ static void *updateHeading(void *input) {
 // setting shouldUpdate to 0 causes this function to put its
 //   thread into a sleep state, waking up every few seconds to
 //   check the shouldUpdate flag
-// expects an Orientation struct pointer as the input
 // updates the altitude member of the struct input
 static void *updateAltitude(void *input) {
-	if (input == NULL) {
-		printf("invalid input to updateAltitude\n");
-		return NULL;
-	}
-
-	// this is the pointer the orientation struct which
-	//   this function will record updates to
-	struct Orientation *orientation = (struct Orientation *)(input);
 	// stores the time the function should sleep between
 	//   updates in microseconds
-	uint32_t sleepTime = 1000000/altitudeUpdateFrequency;
+	uint32_t period = 1000000 / accelerationUpdateFrequency;
+	double lastUpdateTime = 0;
 
 	while (1) {
 		while (!shouldUpdate) {
@@ -422,11 +424,11 @@ static void *updateAltitude(void *input) {
 			usleep(1500000);
 		}
 
-		orientation->altitude = getAltitude();
-
-		// sleep to prevent CPU waste since the
-		//   sensors only have limited update frequency
-		usleep(sleepTime);
+		uint32_t sleepTime = period - deltaTime(&lastUpdateTime) * 1000000;
+		if (sleepTime > 0)
+			usleep(sleepTime);
+		
+		getAltitude();
 	}
 	return NULL;
 }
@@ -443,15 +445,6 @@ struct Observer {
 	int (*completionHandler)(struct Orientation);
 };
 
-
-// common orientation structure to be used by the member update functions as
-//   the sole place to store updates
-static struct Orientation _commonOrientation = {
-	.acceleration = Vector3d(0, 0, 0),
-	.gravity = Vector3d(0, 0, 0), 
-	.heading = 0,
-	.altitude = 0,
-};
 
 // stores the thread pointers
 // only one thread per Orientation struct member is used, which
@@ -470,21 +463,16 @@ static const uint16_t _maxListeners = 10;
 //   like it did something
 // returns 0 on success and -1 on failure
 int createStructMemberUpdateThreads() {
-	int failure = 0;
+	int failure = initializeSensors();
+
 	if (_accelerationThread == 0) {
-		failure |= pthread_create(&_accelerationThread, NULL, \
-					  &updateAcceleration, \
-					  (void *)&_commonOrientation);
+		failure |= pthread_create(&_accelerationThread, NULL, &updateAcceleration, NULL);
 	}
 	if (_altitudeThread == 0) {
-		failure |= pthread_create(&_altitudeThread, NULL, \
-					  &updateAltitude, \
-					  (void *)&_commonOrientation);
+		failure |= pthread_create(&_altitudeThread, NULL, &updateAltitude, NULL);
 	}
 	if (_headingThread == 0) {
-		failure |= pthread_create(&_headingThread, NULL, \
-					  &updateHeading, \
-					  (void *)&_commonOrientation);
+		failure |= pthread_create(&_headingThread, NULL, &updateHeading, NULL);
 	}
 
 	if (failure) {
@@ -536,7 +524,10 @@ int killStructMemberUpdateThreads() {
 			returnValue = -1;
 		}
 	}
-	return 0;
+	
+	deinitializeSensors();
+
+	return returnValue;
 }
 
 // handles calling the completion handler of the getOrientation
@@ -567,9 +558,14 @@ void *updateOrientation(void *input) {
 	// if the completion handler requests termination,
 	//   terminates on the next loop
 	uint32_t waitTimeMicroseconds = 1000000/threadInfo.frequency;
+	double lastUpdateTime = 0;
+	deltaTime(&lastUpdateTime);
 	int completion = 0;
+
 	while (1) {
-		completion = threadInfo.completionHandler(_commonOrientation);
+		getLock();
+		completion = threadInfo.completionHandler(_currentOrientation);
+		releaseLock();
 
 		if (completion < 0) {
 			printf("exit requested\nending listener thread\n");
@@ -579,10 +575,12 @@ void *updateOrientation(void *input) {
 		}
 		else if (completion > 0) {
 			threadInfo.frequency = completion;
-			waitTimeMicroseconds = 1000000.0/completion;
+			waitTimeMicroseconds = 1000000/completion;
 		}
 
-		usleep(waitTimeMicroseconds);
+		uint32_t sleepTimeMicro = waitTimeMicroseconds - (deltaTime(&lastUpdateTime) * 1000000);
+		if (sleepTimeMicro > 0)
+			usleep(sleepTimeMicro);
 	}
 
 	return NULL;

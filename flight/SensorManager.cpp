@@ -47,57 +47,30 @@ uint32_t unsignedValue(int _signedValue, uint8_t numBits);
 // converts two's complement unsigned value into signed value
 int32_t signedValue(uint32_t _unsignedValue, uint8_t numBits);
 
-void initializeSensors() {
+int initializeSensors() {
 	// no need to run if sensors already initialized
 	if (_sensorsAvailable == 1) {
-		return;
+		return 0;
 	}
 
 	//
 	// accelerometer section
 	//
 	// enabled auto increment on the register addresses
-	uint8_t autoIncrementRegister[1] = {0x12};
-	uint8_t autoIncrement = 0x04;
-	int incrementSuccess = i2cWrite(accelAddress, autoIncrementRegister, \
-					1, autoIncrement, HIGH_BYTE_FIRST, \
-					AUTO_INCREMENT_ENABLED);
-
+	uint8_t autoIncrementData[2] = {0x12, 0x06};
+	int incrementSuccess = i2c_write(accelAddress, autoIncrementData, 2);
 	if (incrementSuccess != 0) {
 		printf("Failed to set auto increment for accelerometer\n");
+		return -1;
 	}
 
-	uint8_t accelConfigRegisters[1] = {0x10};
-	// sets the accelerometer to 1.6kHz mode with a range of +-16g
-	uint8_t accelConfig = 0x84;
-	int accelSuccess = i2cWrite(accelAddress, accelConfigRegisters, 1, \
-				    accelConfig, HIGH_BYTE_FIRST, \
-				    AUTO_INCREMENT_ENABLED);
-
-	if (accelSuccess != 0) {
-		printf("Failed to set i2c configuration for accelerometer\n");
+	uint8_t data[] = {0x10, 0x6b, 0x64, 0x06, 0x80, 0x00, 0x00, 0x00, 0x80, 0x38, 0x38};
+	// perform the actual write and check for errors
+	int failure = i2c_write(accelAddress, data, 11);
+	if (failure) {
+		printf("failed to enable accelerometer and gyroscope\n");
+		return -1;
 	}
-
-	//
-	// gyroscope section
-	//
-	uint8_t gyroConfigRegister[1] = {0x11};
-	// sets the gyroscope to 1.6kHz mode with a scale of 2000 degrees per second
-	uint8_t gyroConfig = 0x84;
-	int gyroSuccess = i2cWrite(gyroAddress, gyroConfigRegister, 1, \
-				   gyroConfig, HIGH_BYTE_FIRST, \
-				   AUTO_INCREMENT_ENABLED);
-
-	// sets the gyroscope high pass filter on and sets the filter cutoff frequency
-	//   to 2.07Hz with rounding enabled
-	gyroConfigRegister[0] = 0x16;
-	gyroConfig = 0x70;
-	gyroSuccess |= i2cWrite(gyroAddress, gyroConfigRegister, 1, \
-				gyroConfig, HIGH_BYTE_FIRST, \
-				AUTO_INCREMENT_ENABLED);
-
-	if (gyroSuccess != 0)
-		printf("Failed to set i2c configuration for gyroscope\n");
 
 	//
 	// magnetometer section
@@ -105,50 +78,41 @@ void initializeSensors() {
 
 	// annoyingly, the device must be put to sleep when changing settings
 	// first, set the device to sleep
-	uint8_t magConfigRegister1 = 0x10;
-	uint8_t magSleepValue = 0x00;
+	uint8_t state[] = {0x10, 0x00};
 
-	int magSuccess = i2cWrite(magAddress, &magConfigRegister1, 1, \
-				  magSleepValue, HIGH_BYTE_FIRST, \
-				  AUTO_INCREMENT_ENABLED);
+	int magSuccess = i2c_write(magAddress, state, 2);
 
 	// set the user offset values (experimentally determined, different for every setup
-	uint8_t xOffsetRegisters[2] = {0x09, 0x0a};
-	uint8_t yOffsetRegisters[2] = {0x0b, 0x0c};
-	uint8_t zOffsetRegisters[2] = {0x0d, 0x0e};
-
 	// bits must be shifted by one because the last bit is 0 and unused
 	uint16_t xOffset = (0x7f4a << 1);
 	uint16_t yOffset = (0x0241 << 1);
 	uint16_t zOffset = (0x0604 << 1);
 
+	uint8_t xL = xOffset & 0xff;
+	uint8_t xH = (xOffset & 0xff00) >> 8;
+	uint8_t yL = yOffset & 0xff;
+	uint8_t yH = (yOffset & 0xff00) >> 8;
+	uint8_t zL = zOffset & 0xff;
+	uint8_t zH = (zOffset & 0xff00) >> 8;
+
+	uint8_t offsets[] = {0x09, xL, xH, yL, yH, zL, zH};
+	magSuccess |= i2c_write(magAddress, offsets, 7);
+
 	// this block was used to determine the offset values based on experimental testing
 	//int value = -183;
 	//printf("two complement of %d is %x\n", value, unsignedValue16bit(value));
 
-	magSuccess |= i2cWrite(magAddress, xOffsetRegisters, 2, xOffset, \
-			       HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
-	magSuccess |= i2cWrite(magAddress, yOffsetRegisters, 2, yOffset, \
-			       HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
-	magSuccess |= i2cWrite(magAddress, zOffsetRegisters, 2, zOffset, \
-			       HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
-
-	// now set the register values
-	uint8_t magConfigRegisters[2] = {0x10, 0x11};
-	uint16_t magConfig = 0x0900;
-
-	magSuccess |= i2cWrite(magAddress, magConfigRegisters, 2, magConfig, \
-			       HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
+	// now set the configuration values
+	uint8_t config[] = {0x10, 0x00, 0x00};
+	magSuccess |= i2c_write(magAddress, config, 3);
 
 	// finally, wake up the magnetometer again
-	uint8_t magWakeValue = 0x09;
-
-	magSuccess |= i2cWrite(magAddress, &magConfigRegister1, 1, \
-			       magWakeValue, HIGH_BYTE_FIRST, \
-			       AUTO_INCREMENT_ENABLED);
+	state[1]  = 0x01;
+	magSuccess |= i2c_write(magAddress, state, 2);
 
 	if (magSuccess != 0) {
 		printf("Failed to set i2c configuration for magnetometer\n");
+		return -1;
 	}
 
 	//
@@ -160,6 +124,8 @@ void initializeSensors() {
 	// let power stabilize with a wait
 	usleep(50);
 	_sensorsAvailable = 1;
+
+	return 0;
 }
 
 
@@ -170,17 +136,9 @@ void deinitializeSensors() {
 	//
 
 	// expanded for readability, local variables for the configRegisters
-	uint8_t accelConfigRegister = 0x10;
-	uint8_t gyroConfigRegister = 0x11;
-
-	uint8_t registers[] = {accelConfigRegister, gyroConfigRegister};
-
-	// since I want to turn the sensors off, I can just write straight zeros
-	uint16_t writeValue = 0x0000;
-
+	uint8_t data[] = {0x10, 0x0b, 0x00, 0x06, 0xc0, 0x00, 0x10, 0x80, 0x80, 0x38, 0x38};
 	// perform the actual write and check for errors
-	int success = i2cWrite(accelAddress, registers, 2, writeValue, \
-			       HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
+	int success = i2c_write(accelAddress, data, 11);
 
 	if (success != 0) {
 		printf("Failed to deinitialize accelerometer and gyroscope sensors\n");
@@ -189,13 +147,8 @@ void deinitializeSensors() {
 	//
 	// magnetometer section
 	//
-	uint8_t magConfigRegisters[2] = {0x11, 0x12};
-	uint16_t magConfig = 0x0800;
-
-	int magSuccess = i2cWrite(magAddress, magConfigRegisters, 2, \
-				  magConfig, HIGH_BYTE_FIRST, \
-				  AUTO_INCREMENT_ENABLED);
-
+	uint8_t config[] = {0x10, 0x00};
+	int magSuccess = i2c_write(magAddress, config, 2);
 	if (magSuccess != 0) {
 		printf("Failed to power down magnetometer\n");
 	}
@@ -204,13 +157,9 @@ void deinitializeSensors() {
 	// barometer section
 	//
 	// sets the barometer to oversampling @ 8 times
-	uint8_t barometerConfigRegister = 0xf4;
-	uint8_t barometerConfig = 0x00;
+	uint8_t barometerConfig[] = {0xf4, 0x00};
 
-	int barometerSuccess = i2cWrite(barometerAddress, \
-					&barometerConfigRegister, 1, \
-					barometerConfig, HIGH_BYTE_FIRST, \
-					AUTO_INCREMENT_DISABLED);
+	int barometerSuccess = i2c_write(barometerAddress, barometerConfig, 2);
 
 	if (barometerSuccess != 0) {
 		printf("Failed to power down barometer\n");
@@ -256,69 +205,51 @@ uint32_t unsignedValue(int _signedValue, uint8_t numBits) {
 // this is a generalized function used by the acceleration vector,
 //   rotation vector, and magnetometer vector functions since they have
 //   similar hardware interfaces
-// place registers in x, y, z order with low before high registers
-// with the exception of the last argument, all arguments are for the i2c operation
-//   see the documentation in i2cctl.h for information on what the values do
-//   it only applies for 16 bit values right nowm set to 0 if using 32 bit or 8 bit sizes
+// <reg> should be the first register to read from
+// this assumes that all values are linear and occur as registers right after <reg>
+// this also assumes that there are 6 bytes per vector, 2 per component, in xyz order, msb first
 // the last argument, divisor, is used to correct for the fact that decimal values
 //   must be stored as integers by the registers, so the decimal point must be shifted
-Vector3d threeAxisVector(uint16_t address, uint8_t *registers, \
-			 uint8_t numRegisters, uint8_t bytesPerValue, \
-			 uint8_t autoIncrementEnabled, uint8_t highByteFirst, \
-			 double divisor) {
-	Vector3d v = Vector3d(0, 0, 0);
-	if (numRegisters / bytesPerValue > 3 || \
-	    numRegisters / bytesPerValue <= 0) {
-		printf("Invalid register count for function threeAxisVector\n");
-		return v;
-	}
+Vector3d threeAxisVector(uint16_t address, uint8_t reg, double divisor) {
+	// initialize the sensors before using them
+	initializeSensors();
 
 	// retrieves the sensor values based on the passed in arguments
-	uint32_t vectorValues[numRegisters / bytesPerValue];
-	int success = i2cWordRead(address, registers, numRegisters, \
-				  vectorValues, bytesPerValue, highByteFirst, \
-				  autoIncrementEnabled);
-
-	// check for failure and return an empty vector if so
-	if (success != 0) {
-		printf("Read failed in threeAxisVector for device %x", address);
-		return v;
+	uint8_t vectorValues[6];
+	int failure = i2c_read(address, reg, vectorValues, 6);
+	if (failure) {
+		printf("Read failed in threeAxisVector for device %x\n", address);
+		return Vector3d(0, 0, 0);
 	}
 
+	uint16_t x, y, z = 0;
+	x = ((uint16_t)vectorValues[0] << 8) + (uint16_t)vectorValues[1];
+	y = ((uint16_t)vectorValues[2] << 8) + (uint16_t)vectorValues[3];
+	z = ((uint16_t)vectorValues[4] << 8) + (uint16_t)vectorValues[5];
+
 	// convert the values from unsigned two's complement to a signed int
-	int rawx = signedValue(vectorValues[0], 16);
-	int rawy = signedValue(vectorValues[1], 16);
-	int rawz = signedValue(vectorValues[2], 16);
+	int rawx = signedValue(x, 16);
+	int rawy = signedValue(y, 16);
+	int rawz = signedValue(z, 16);
 
-	v = Vector3d(rawx, rawy, rawz) / divisor;
-
-	return v;
+	return Vector3d(rawx, rawy, rawz) / divisor;
 }
 
 // gets the linear acceleration from the gyroscope
 Vector3d accelerationVector() {
-	// initialize the sensors before using them
-	initializeSensors();
-
-	// the hard-coded register addresses for the accelerometer (L,H,L,H,L,H) (x,y,z)
-	uint8_t accelRegisters[6] = {0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d};
-
 	// convert the signed integer form into double form based on the configured accelerometer range
 	// scale is given as the +- g range for the accelerometer
-	// with a +- 16g scale and a 16 bit output integer, the raw value should be
-	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - log2(16))
-	//   which equals 2^11 = 2048
+	// with a +- 4g scale and a 16 bit output integer, the raw value should be
+	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - log2(4))
+	//   which equals 2^13 = 8192
 	// why 15? well remember, the raw 16 bit register output has to be converted to a signed value
 	//   two's complement effectively uses a bit to encode sign, so we lost a bit for the total amount
 	// for the sake of efficiency, this value is hardcoded, but it is important to know how it was
 	//   determined for future adaptation
-	int divisor = 2048;
+	int divisor = 8192;
 
 	// create an even more user-friendly acceleration vector
-	Vector3d acc = threeAxisVector(accelAddress, accelRegisters, \
-						6, WORD_16_BIT, \
-						AUTO_INCREMENT_ENABLED, \
-						LOW_BYTE_FIRST, divisor);
+	Vector3d acc = threeAxisVector(accelAddress, 0x28, divisor);
 
 	return acc;
 }
@@ -330,15 +261,9 @@ Vector3d accelerationVector() {
 //   and then change variable names and comments.  It's necessary boilerplate,
 //   the sensors are on the same chip, and I don't care if you know
 Vector3d rotationVector() {
-	// initialize the sensors before using them
-	initializeSensors();
-
-	// the hard-coded register addresses for the gyroscope (L,H,L,H,L,H) (x,y,z)
-	uint8_t gyroRegisters[6] = {0x22, 0x23, 0x24, 0x25, 0x26, 0x27};
-
 	// scale is given as the +- dps range for the gyroscope
 	// with a +- 2000 dps scale and a 16 bit output integer, the raw value should be
-	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - ceil(log2(2000)))
+	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - ceil(log2(500)))
 	//   which equals 2^4 = 16
 	//
 	// why 15? well remember, the raw 16 bit register output has to be converted to a signed value
@@ -348,12 +273,10 @@ Vector3d rotationVector() {
 	//
 	// looking back, I have no idea how this divisor became 32 when the math says 16
 	// dont ask me
-	int divisor = 14;
+	int divisor = 64;
 
 	// create an even more user-friendly rotation vector
-	Vector3d r = threeAxisVector(gyroAddress, gyroRegisters, 6, \
-				     WORD_16_BIT, AUTO_INCREMENT_ENABLED, \
-				     LOW_BYTE_FIRST, divisor);
+	Vector3d r = threeAxisVector(gyroAddress, 0x22, divisor);
 
 	return r;
 }
@@ -362,12 +285,6 @@ Vector3d rotationVector() {
 // returns the vector describing the magnetic field
 // vector axises (no idea how to make axis plural) are the same as the accelerometer axises
 Vector3d magneticField() {
-	// initialize the sensors before using them
-	initializeSensors();
-
-	// the hard-coded register addresses for the magnetometer (L,H,L,H,L,H) (x,y,z)
-	uint8_t magRegisters[6] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
-
 	// scale is given as the +- micro telsas (uT) range for the magnetometer
 	// with a +- 1000uT scale and a 16 bit output integer, the raw value should be
 	//   divided by 2^(bits - log2(range)) which comes out to be 2^(15 - ceil(log2(1000)))
@@ -381,10 +298,7 @@ Vector3d magneticField() {
 	int divisor = 10;
 
 	// create an even more user-friendly magnetic field vector
-	Vector3d magField = threeAxisVector(magAddress, magRegisters, \
-						     6, WORD_16_BIT, \
-						     AUTO_INCREMENT_ENABLED, \
-						     HIGH_BYTE_FIRST, divisor);
+	Vector3d magField = threeAxisVector(magAddress, 0x00, divisor);
 
 	// since the magnetometer is actually mounted upside down, the z axis value must be flipped
 	magField(2) *= -1;
@@ -401,25 +315,21 @@ void getBarometerParameters() {
 		// the registers come in pairs of two
 		// they are MSB (most significant byte) first
 		uint8_t registers[2] = {(uint8_t)(0xaa + (2 * i)), (uint8_t)(0xab + (2 * i))};
-		uint32_t readValue;
+		uint8_t data[2];
 
-		int success = i2cWordRead(barometerAddress, registers, 2, \
-					  &readValue, WORD_16_BIT, \
-					  HIGH_BYTE_FIRST, \
-					  AUTO_INCREMENT_ENABLED);
+		int success = i2c_read(barometerAddress, registers[0], data, 1);
+		success |= i2c_read(barometerAddress, registers[1], &data[1], 1);
+		uint32_t readValue = ((uint16_t)data[0] << 8) + (uint16_t)data[1];
 
 		if (success != 0) {
 			printf("reading eeprom data from registers %x and %x failed\n", registers[0], registers[1]);
-		}
-		else {
+		} else {
 			int32_t signedReadValue;
 
-			if (i < 3 || i > 5) {
+			if (i < 3 || i > 5)
 				signedReadValue = signedValue(readValue, 16);
-			}
-			else {
+			else
 				signedReadValue = readValue;
-			}
 
 			baroVals[i] = signedReadValue;
 		}
@@ -429,18 +339,18 @@ void getBarometerParameters() {
 
 // helper function to get the barometer uncompensatedtemperature
 uint32_t uncompensatedTemperature() {
-	uint8_t barometerRegister = 0xf4;
-	int success = i2cWrite(barometerAddress, &barometerRegister, 1, 0x2e, \
-			       HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
+	uint8_t temperatureConfig[] = {0xf4, 0x2e};
+	int success = i2c_write(barometerAddress, temperatureConfig, 2);
 
 	// datasheet suggests waiting 4.5 seconds for the value to be obtained
 	usleep(4500);
 
 	uint8_t dataRegisters[] = {0xf6, 0xf7};
-	uint32_t temperature;
-	success |= i2cWordRead(barometerAddress, dataRegisters, 2, \
-			       &temperature, WORD_16_BIT, HIGH_BYTE_FIRST, \
-			       AUTO_INCREMENT_ENABLED);
+	uint8_t data[2];
+
+	success |= i2c_read(barometerAddress, dataRegisters[0], data, 1);
+	success |= i2c_read(barometerAddress, dataRegisters[1], &data[1], 1);
+	uint32_t temperature = ((uint16_t)data[0] << 8) + (uint16_t)data[1];
 
 	if (success != 0) {
 		printf("barometer temperature read failed");
@@ -453,25 +363,23 @@ uint32_t uncompensatedTemperature() {
 uint32_t uncompensatedPressure() {
 	uint8_t sampleRate = 3;
 
-	uint8_t barometerRegister = 0xf4;
-	int success = i2cWrite(barometerAddress, &barometerRegister, 1, 0xf4, \
-			       HIGH_BYTE_FIRST, AUTO_INCREMENT_ENABLED);
+	uint8_t pressureConfig[] = {0xf4, 0xf4};
+	int success = i2c_write(barometerAddress, pressureConfig, 2);
 
 	// datasheet suggests a 25.5ms waiting period for a sample rate of 3
 	usleep(25500);
 
 	uint8_t dataRegisters[] = {0xf6, 0xf7, 0xf8};
-	uint32_t pressure;
-	success |= i2cWordRead(barometerAddress, dataRegisters, 3, &pressure, \
-			       WORD_24_BIT, HIGH_BYTE_FIRST, \
-			       AUTO_INCREMENT_ENABLED);
+	uint8_t data[3];
+
+	success |= i2c_read(barometerAddress, dataRegisters[0], data, 1);
+	success |= i2c_read(barometerAddress, dataRegisters[1], &data[1], 1);
+	success |= i2c_read(barometerAddress, dataRegisters[2], &data[2], 1);
+	uint32_t pressure = (((uint32_t)data[0] << 16) + ((uint32_t)data[1] << 8) + (uint32_t)data[2]) >> (8 - sampleRate);
+
 	if (success != 0) {
 		printf("barometer pressure read failed");
-	}
-	// the bits need to be shifted down as per the datasheet
-	else {
-		//pressure <<= 8;
-		pressure >>= (8 - sampleRate);
+		return 0;
 	}
 
 	return pressure;
