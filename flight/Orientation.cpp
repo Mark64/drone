@@ -463,6 +463,7 @@ static const uint16_t _maxListeners = 10;
 // returns 0 on success and -1 on failure
 int createStructMemberUpdateThreads() {
 	int failure = initializeSensors();
+	calibrateSensors();
 
 	if (_accelerationThread == 0) {
 		failure |= pthread_create(&_accelerationThread, NULL, &updateAcceleration, NULL);

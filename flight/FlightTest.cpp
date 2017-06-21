@@ -82,10 +82,10 @@ int orientationStatisticsCompletionHandler(struct Orientation orientation) {
 		variance.heading = pow(variance.heading / (i - 1), 0.5);
 		variance.altitude = pow(variance.altitude / (i - 1), 0.5);
 
-		printf("%saverages%s\n", HEADING_COLOR, NORMAL_COLOR);
+		printf("\n%saverages%s", HEADING_COLOR, NORMAL_COLOR);
 		orientationCompletionHandler(totals);
 
-		printf("%sstandard deviations%s\n", HEADING_COLOR, NORMAL_COLOR);
+		printf("\n%sstandard deviations%s", HEADING_COLOR, NORMAL_COLOR);
 		orientationCompletionHandler(variance);
 
 		canReturn = -1;
@@ -95,8 +95,6 @@ int orientationStatisticsCompletionHandler(struct Orientation orientation) {
 
 void testOrientationStatistics() {
 	printf("testing orientation - stats mode\n");
-	printf("calibrating...\n");
-	calibrateSensors();
 	printf("begining orientation statistics printout of %i samples at %iHz\n", N, hz);
 	getOrientation(&orientationStatisticsCompletionHandler, hz);
 	while (!canReturn) {
@@ -113,8 +111,6 @@ void testEmergencyStop() {
 
 void testOrientation() {
 	printf("testing orientation\n");
-	printf("calibrating...\n");
-	calibrateSensors();
 	printf("begin printing orientation @ 1Hz\n");
 	sleep(1);
 	getOrientation(&orientationCompletionHandler, 1);

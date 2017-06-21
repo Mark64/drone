@@ -84,9 +84,9 @@ int initializeSensors() {
 
 	// set the user offset values (experimentally determined, different for every setup
 	// bits must be shifted by one because the last bit is 0 and unused
-	uint16_t xOffset = (0x7f4a << 1);
-	uint16_t yOffset = (0x0241 << 1);
-	uint16_t zOffset = (0x0604 << 1);
+	uint16_t xOffset = 0;//(0x7f4a << 1);
+	uint16_t yOffset = 0;//(0x0241 << 1);
+	uint16_t zOffset = 0;//(0x0604 << 1);
 
 	uint8_t xL = xOffset & 0xff;
 	uint8_t xH = (xOffset & 0xff00) >> 8;

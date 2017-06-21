@@ -27,7 +27,6 @@ int orientationUpdate(struct Orientation orientation) {
 
 // starts the flight manager thread
 int startFlightManager() {
-	calibrateSensors();
 	getOrientation(&orientationUpdate, 1);
 
 	return 0;
