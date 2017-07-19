@@ -43,7 +43,7 @@ if [ ! -e $CMAKE_TOOLCHAIN_FILE ]; then
 	mkdir -p $TOOLCHAIN_DEST_DIR 
 	# clone the repo from the source into the destination
 	#   specified by the variables above
-	git clone $TOOLCHAIN_REPO $TOOLCHAIN_DEST_DIR
+	git clone --depth=1 $TOOLCHAIN_REPO $TOOLCHAIN_DEST_DIR
 	
 	# now write to the toolchain file all the settings
 	#  as recommended by the cmake wiki
