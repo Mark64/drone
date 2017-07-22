@@ -1,0 +1,42 @@
+sensors
+	sens_init() // calls detect_devices in board library
+	sens_exit() // loops through devices and deregisters
+	call register_device(drone_dev_struct *)
+		drone_dev_struct {
+			enum type = GYRO, ACCEL, MAG, CAMERA, BATTERY, ULTRASONIC, etc
+			int dev_init(struct *dev)
+			void dev_exit(struct *dev) // configured manually, required
+			int read(drone_dev_struct *dev, void *data, int count) // configured manually, may be null
+			int write(drone_dev_struct *dev, const void *data, int count) // configured manually, may be null
+			int ping(struct drone_dev *dev) // used to detect if a device is still on the bus for busses like i2c that don't detect connection events
+			int configure(void *data) // configured manually, may be null
+			int dev_id // added with register_device, always positive non zero if successful
+			char name[200] // configured using name_drone_dev()
+			enum bustype // i2c, spi, usb
+			int bus num
+			int address // i2c address or spi cs number
+			int active // when registered gets set to 1, when unregistered gets set to 0, when ping() fails gets set to -1
+			uint maxreadrate // added with dev_init
+			uint maxwriterate // added with dev_init
+			void *misc_data // unknown use
+		}
+	remove with unregister_device(drone_dev_struct *)
+
+	static struct drone_dev_struct *devices
+	int read_from_device(type, data)
+	int register_sensor_manager(type /*bitwise or*/, struct sensor_manager)
+		struct sensor_manager() {
+			int mngr_init(sensor_manager *)
+			void mngr_exit(sensor_manager *)
+			int read(void *data, drone_dev_struct *devices, int type)
+			int write(const void *data, drone_dev_struct *devices, int type)
+			void *data
+		}
+
+board library
+	shared header
+		drone_dev_struct array[] // must be built manually
+		void detect_devices() // goes through all devices it knows and adds them to sensors with register_device
+	implementation
+
+
