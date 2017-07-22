@@ -91,7 +91,7 @@
 #define FOFP_R_W 0x74
 #define WHO_AM_I 0x75
 
-
+void powerSensor(bool on);
 void gyroTest();
 unsigned short extracted(unsigned short value, int begin, int end);
 
