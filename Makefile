@@ -1,47 +1,88 @@
-# the Makefile wrapper so that I can do out of source builds without having to cd first
-# based on Maurice Ling's Makefile in irvine-01-sw and this site
-#   http://stackoverflow.com/questions/11143062/getting-cmake-to-build-out-of-source-without-wrapping-scripts
+# drone sw makefile
 # by Mark Hill
 
-SHELL := /bin/bash
-RM    := rm -rf
-MKDIR := mkdir -p
-TEST_EXECUTABLE_NAME := rocketTest
-CMAKE_TOOLCHAIN_FILE := toolchainRaspberryPi0.cmake
+TEST_EXECUTABLE_NAME := droneTest
+EXECUTABLE_NAME := drone
+BUILD_DIR := build
 
 SCRIPTS_DIR := scripts
 TOOLCHAIN_INSTALL_SCRIPT := $(SCRIPTS_DIR)/installRPIToolchain
-TEST_INSTALL_SCRIPT := $(SCRIPTS_DIR)/installTest
+INSTALL_SCRIPT := $(SCRIPTS_DIR)/installTest
 
-all: ./build/Makefile
-	@ $(MAKE) -C build
+CROSS_COMPILE = ""
+CC = $(CROSS_COMPILE)cc
+CPP = $(CC) -E
+CXX = $(CROSS_COMPILE)g++
+LD = $(CROSS_COMPILE)ld
+AS = $(CROSS_COMPILE)as
+AR = $(CROSS_COMPILE)ar
+NM = $(CROSS_COMPILE)nm
+STRIP = $(CROSS_COMPILE)strip
+OBJCOPY = $(CROSS_COMPILE)objcopy
+OBJDUMB = $(CROSS_COMPILE)objdump
 
-./build/Makefile: toolchain
-	@ (cd build > /dev/null 2>&1 && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE) ..)
+MKDIR = mkdir
+MV = mv
+RM = rm
 
-toolchain:
-	@ (sh $(TOOLCHAIN_INSTALL_SCRIPT))
+CPPFLAGS = ""
+CFLAGS = "-g -O2"
+CXXFLAGS = "-g -O2"
+LDFLAGS = ""
+LDLIBS = ""
 
-install: all
-	@ (sh $(TEST_INSTALL_SCRIPT))
+export CROSS_COMPILE CC CPP CXX LD AS AR NM STRIP OBJCOPY OBJDUMB CFLAGS CPPFLAGS CXXFLAGS LDFLAGS MKDIR BUILD_DIR MV RM
 
-test: install
-	@ (ssh rocket $(TEST_EXECUTABLE_NAME))
+SUBDIRS := drivers sensors orientation motion flight
+SUBOBJS := $(patsubst %, %/%-built-in.o, $(SUBDIRS))
+SUBCLEAN := $(patsubst %, %-clean, $(SUBDIRS))
 
-distclean:
-	@  ($(MKDIR) build > /dev/null)
-	@  (cd build > /dev/null 2>&1 && cmake .. > /dev/null 2>&1)
-	@- $(MAKE) --silent -C build clean || true
-	@- $(RM) ./build/Makefile
-	@- $(RM) ./build/src
-	@- $(RM) ./build/test
-	@- $(RM) ./build/CMake*
-	@- $(RM) ./build/cmake.*
-	@- $(RM) ./build/*.cmake
-	@- $(RM) ./build/*.txt
+.PHONY : all install test check $(SUBDIRS) $(SUBCLEAN) subdirs subclean clean cscope cscope.files TAGS ctags tags ycm_config
 
-clean:
-	@ (cd build && $(MAKE) clean)
+all: subdirs
+	$(CC) -o $(EXECUTABLE_NAME) $(LDFLAGS) $(LDLIBS) $(SUBOBJS)
+
+subdirs: $(SUBDIRS) | $(BUILD_DIR)
+$(SUBDIRS):
+	$(MAKE) $(MAKEFLAGS) -C $@
+
+$(BUILD_DIR):
+	$(MKDIR) -p $@
+
+install:
+	sh $(INSTALL_SCRIPT)
+
+test check:
+	$(TEST_EXECUTABLE_NAME)
+
+clean: subclean
+	$(RM) $(EXECUTABLE_NAME) $(TEST_EXECUTABLE_NAME)
+
+subclean: $(SUBCLEAN)
+$(SUBCLEAN):
+	$(MAKE) -C $(subst -clean,, $@) clean
+
+
+
+
+YCM_GEN_CONFIG = $(HOME)/.vim/bundle/YCM-Generator/config_gen.py 
+CTAGS = ctags
+CSCOPE = cscope
+FIND = find
+CURDIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
+cscope: cscope.files
+	$(CSCOPE) -b -q
+
+# needs fixing
+cscope.files:
+	$(FIND) $(CURDIR) $(patsubst %, -path $(CURDIR)/%*, $(SUBDIRS)) -name "*.[chxsS]" -name "*.cpp" -name "*.cc" -name "*.hpp" > $(CURDIR)/cscope.files
+	
+TAGS ctags tags:
+	$(CTAGS) --recurse --exclude=$(SCRIPTS_DIR) --exclude=$(BUILD_DIR) --exclude="*.js" --languages=C --languages=+C++ --totals $(CURDIR)
+
+ycm_config:
+	$(YCM_GEN_CONFIG) -f $(CURDIR)
 
 
 
