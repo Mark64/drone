@@ -22,7 +22,9 @@
 
 #include<Eigen/Dense>
 #include<SensorManager.h>
-#include<i2cctl.h>
+extern "C" {
+	#include<i2cctl.h>
+}
 
 using namespace Eigen;
 

@@ -13,12 +13,14 @@
 
 #include<Eigen/Dense>
 #include<geometry.h>
-#include<i2cctl.h>
-#include<PWMController.h>
 #include<SensorManager.h>
 #include<MotorController.h>
 #include<Orientation.h>
 #include<FlightManager.h>
+extern "C" {
+	#include<i2cctl.h>
+	#include<PWMController.h>
+}
 
 #define HEADING_COLOR "\x1B[1m" // bold
 #define NORMAL_COLOR "\x1B[0m" // normal text

@@ -5,7 +5,9 @@
 #include<unistd.h>
 
 #include <MotorController.h>
-#include <PWMController.h>
+extern "C" {
+	#include <PWMController.h>
+}
 
 // the arming, minimum, and maximum thrust values
 // the arming value is a PWM percentage that tells the ESC there is a proper PWM signal source attached
