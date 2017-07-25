@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "using host toolchain"
