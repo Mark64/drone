@@ -12,7 +12,8 @@ TEST_MAIN_FILE := flight/FlightTest.cpp
 TOOLCHAIN_PREFIX := toolchain_
 TOOLCHAIN_INSTALL_PREFIX := install_
 NATIVE_TOOLCHAIN_NAME := native
-BUILD_DIR = build_$(subst $(TOOLCHAIN_PREFIX),,$(TOOLCHAIN_NAME))
+BUILD_DIR_BASE = build_
+BUILD_DIR = $(BUILD_DIR_BASE)$(subst $(TOOLCHAIN_PREFIX),,$(TOOLCHAIN_NAME))
 SCRIPTS_DIR = scripts
 MAKEFILE = $(BUILD_DIR)/Makefile
 CONFIG = .config
@@ -61,7 +62,7 @@ all: $(MAKEFILE)
 depends: $(CONFIG)
 	@ touch $(CONFIG)
 
-$(MAKEFILE): $(CONFIG) $(CMAKE_TOOLCHAIN_FILE)
+$(MAKEFILE): $(CONFIG) $(CMAKE_TOOLCHAIN_FILE) | $(BUILD_DIR)
 	(cd $(BUILD_DIR) && \
 		$(CMAKE) -DSUBDIRS="$(call create-cmake-list,$(SUBDIRS))" \
 		-DINCLUDES="$(call create-cmake-list,$(INCLUDES))" \
@@ -75,9 +76,9 @@ $(MAKEFILE): $(CONFIG) $(CMAKE_TOOLCHAIN_FILE)
 		-DCMAKE_TOOLCHAIN_FILE=$(subst $(BUILD_DIR)/%,%,$(CMAKE_TOOLCHAIN_FILE_)) ..)
 
 $(CMAKE_TOOLCHAIN_FILE): $(CONFIG) | $(BUILD_DIR)
-	@ (sh -x $(TOOLCHAIN_INSTALL_SCRIPT))
+	@ (sh $(TOOLCHAIN_INSTALL_SCRIPT))
 
-$(BUILD_DIR):
+$(BUILD_DIR): $(CONFIG)
 	$(MKDIR) $@
 
 $(CONFIG):
@@ -125,23 +126,22 @@ cscope: cscope.files
 	$(CSCOPE) -b -q -k
 
 # needs fixing
-cscope.files:
+cscope.files: $(CONFIG)
 	$(FIND) $(CURDIR) $(patsubst %,-path "$(CURDIR)/%*" -prune -o,$(EXCLUDE_DIRS)) \
-		-path "$(CURDIR)/$(BUILD_DIR)*" ! -path "$(CURDIR)/$(TOOLCHAIN_DIR)*" -prune -o \
+		-path "$(CURDIR)/$(BUILD_DIR_BASE)*"  '!' -path "$(CURDIR)/$(BUILD_DIR)*" -prune -a -name "*.*" -o \
 		-name "*.[chxsS]" -o \
 		-name "*.cpp" -o \
 		-name "*.cc" -o \
 		-name "*.hpp" > $(CURDIR)/cscope.files
 
-# needs fixing
 ctags tags:
 	$(CTAGS) --recurse --exclude=$(SCRIPTS_DIR) --exclude=$(BUILD_DIR) --exclude="*.js" --languages=C --languages=+C++ --totals $(CURDIR)
 
 COMPILE_COMMANDS_FILE := compile_commands.json
-$(COMPILE_COMMANDS_FILE): | $(BUILD_DIR)
-	ln -sr $(BUILD_DIR)/$(COMPILE_COMMANDS_FILE) $(COMPILE_COMMANDS_FILE)
+$(COMPILE_COMMANDS_FILE): $(CONFIG) | $(BUILD_DIR)
+	ln -srf $(BUILD_DIR)/$(COMPILE_COMMANDS_FILE) $(COMPILE_COMMANDS_FILE)
 
-ycm_config: $(COMPILE_COMMANDS_FILE)
+ycm_config: $(CONFIG) $(COMPILE_COMMANDS_FILE)
 	@#;w$(YCM_GEN_CONFIG) -f $(CURDIR)
 
 
