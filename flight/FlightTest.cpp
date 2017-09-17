@@ -20,6 +20,7 @@
 extern "C" {
 	#include<i2cctl.h>
 	#include<PWMController.h>
+	#include<dynamic_set.h>
 }
 
 #define HEADING_COLOR "\x1B[1m" // bold
@@ -368,6 +369,27 @@ void testBarometer() {
 	printf("altitude %.3f meters\n", altitude);
 }
 
+void test_dynamic_set() {
+	struct dyn_set *set = dyn_set_init(2);
+	int i = 5;
+	int j = i++;
+	int k = j++;
+	dyn_set_add(set, (void *)&i);
+	dyn_set_add(set, (void *)&j);
+	dyn_set_add(set, (void *)&k);
+	dyn_set_remove(set, (void *)&j);
+	dyn_set_remove(set, (void *)&k);
+	void **array = dyn_set_items(set);
+	long long unsigned int count = dyn_set_count(set);
+	printf("count: %llu\n", count);
+	for (int i = 0; array[i] != NULL; i++) {
+		printf("%llx points to %i\n", (long long unsigned int)array[i], *((int *)array[i]));
+	}
+	i = 2;
+	j = 1;
+	k = 3;
+}
+
 int main(int argc, char * argv[]) {
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "a") == 0) {
@@ -434,6 +456,9 @@ int main(int argc, char * argv[]) {
 		}
 		else if (strcmp(argv[i], "fm") == 0) {
 			testFlightManager();
+		}
+		else if (strcmp(argv[i], "ds") == 0) {
+			test_dynamic_set();
 		}
 
 	}

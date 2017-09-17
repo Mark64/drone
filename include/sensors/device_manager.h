@@ -7,7 +7,8 @@
 #include<stdint.h>
 #include<pthread.h>
 
-#define NAMELEN 100
+#define NAME_LEN 100
+#define DEV_TYPE_COUNT 8
 
 enum dr_dev_type {
 	DR_ACCEL = 0b1,
@@ -92,8 +93,8 @@ struct dr_dev {
 
 	enum dr_dev_type type;
 	enum dr_dev_flags flags;
-	uint8_t *name[NAMELEN];
-	uint8_t *hw_name[NAMELEN]
+	uint8_t *name[NAME_LEN];
+	uint8_t *hw_name[NAME_LEN]
 	
 	enum dr_bus_type bus_type;
 	unsigned int bus_num;

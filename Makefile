@@ -33,7 +33,7 @@ endif
 TEST_INSTALL_SCRIPT = $(SCRIPTS_DIR)/installTest
 export BUILD_DIR TOOLCHAIN_NAME TOOLCHAIN_DIR CMAKE_TOOLCHAIN_FILE
 
-SUBDIRS = flight motion drivers orientation sensors
+SUBDIRS = data flight motion drivers orientation sensors
 INCLUDE_ROOT = include
 EIGEN_DIR = $(INCLUDE_ROOT)/eigen
 INCLUDES = $(patsubst %,$(INCLUDE_ROOT)/%,$(SUBDIRS)) $(INCLUDE_ROOT) $(EIGEN_DIR)
@@ -87,7 +87,7 @@ $(CONFIG):
 $(SUPPORTED_BOARDS_CONFIG_TARGETS):
 	@ printf "TOOLCHAIN_NAME = $(TOOLCHAIN_PREFIX)$(subst -config,,$@)\n" > $(CONFIG)
 
-install: all
+install:
 	@ (sh $(TEST_INSTALL_SCRIPT))
 
 test: install

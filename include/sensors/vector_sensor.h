@@ -14,7 +14,7 @@ enum dr_axis {
 	X = 0b1,
 	Y = 0b10,
 	Z = 0b100,
-//	W = 0b1000, unimplemented
+//	W = 0b1000, //unimplemented
 }
 
 struct dr_dev;
