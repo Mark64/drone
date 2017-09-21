@@ -135,7 +135,7 @@ cscope.files: $(CONFIG)
 		-name "*.hpp" > $(CURDIR)/cscope.files
 
 ctags tags:
-	$(CTAGS) --recurse --exclude=$(SCRIPTS_DIR) --exclude=$(BUILD_DIR) --exclude="*.js" --languages=C --languages=+C++ --totals $(CURDIR)
+	$(CTAGS) --recurse --exclude=$(SCRIPTS_DIR) --exclude=$(BUILD_DIR_BASE)* --exclude="*.js" --languages=C --languages=+C++ --totals $(CURDIR)
 
 COMPILE_COMMANDS_FILE := compile_commands.json
 $(COMPILE_COMMANDS_FILE): $(CONFIG) | $(BUILD_DIR)

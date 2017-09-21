@@ -21,6 +21,7 @@ extern "C" {
 	#include<i2cctl.h>
 	#include<PWMController.h>
 	#include<dynamic_set.h>
+	#include<string_additions.h>
 }
 
 #define HEADING_COLOR "\x1B[1m" // bold
@@ -370,6 +371,10 @@ void testBarometer() {
 }
 
 void test_dynamic_set() {
+	const char s[60] = "";
+	char d[20] = "morestriny";
+	printf("%i, %s\n", (int)strlcpy(d, s, 10), d);
+	
 	struct dyn_set *set = dyn_set_init(2);
 	int i = 5;
 	int j = i++;
@@ -377,14 +382,16 @@ void test_dynamic_set() {
 	dyn_set_add(set, (void *)&i);
 	dyn_set_add(set, (void *)&j);
 	dyn_set_add(set, (void *)&k);
+	dyn_set_add(set, (void *)&j);
+	dyn_set_add(set, (void *)&k);
+	dyn_set_remove(set, (void *)&i);
 	dyn_set_remove(set, (void *)&j);
 	dyn_set_remove(set, (void *)&k);
-	void **array = dyn_set_items(set);
+	dyn_set_remove(set, (void *)&j);
+	void *obj = dyn_set_get_item(set, 0);
 	long long unsigned int count = dyn_set_count(set);
-	printf("count: %llu\n", count);
-	for (int i = 0; array[i] != NULL; i++) {
-		printf("%llx points to %i\n", (long long unsigned int)array[i], *((int *)array[i]));
-	}
+	printf("count: %llu, pointer %lx\n", count, (uint64_t)obj);
+	printf("%llx points to %i\n", (long long unsigned int)obj, *((int *)obj));
 	i = 2;
 	j = 1;
 	k = 3;
