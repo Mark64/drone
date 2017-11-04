@@ -87,9 +87,9 @@ struct dr_dev_mngr;
  */
 struct dr_dev {
 	// functions
-	int (*dev_init)(struct dr_dev *dev);
+	int8_t (*dev_init)(struct dr_dev *dev);
 	void (*dev_close)(struct dr_dev *dev);
-	int (*ping)(struct dr_dev *dev);
+	int8_t (*ping)(struct dr_dev *dev);
 
 	enum dr_dev_type type;
 	enum dr_dev_flags flags;
@@ -99,7 +99,7 @@ struct dr_dev {
 	enum dr_bus_type bus_type;
 	unsigned int bus_num;
 	uint16_t address;
-	int active;
+	int8_t active;
 
 	pthread_mutext_t lock;
 };
@@ -110,7 +110,7 @@ struct dr_dev {
  *
  * @return			0 on success and -1 on failure
  */
-int name_dr_dev(const char *name);
+int8_t name_dr_dev(struct dr_dev *dev, const char *name);
 
 /**
  * registers *dev with the device manager
@@ -118,7 +118,7 @@ int name_dr_dev(const char *name);
  *
  * @return			0 if successful
  */
-int register_device(struct dr_dev *dev);
+int8_t register_device(struct dr_dev *dev);
 
 /**
  * unregisters *dev with the device manager and sends dev_close()

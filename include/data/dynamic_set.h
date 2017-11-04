@@ -9,6 +9,7 @@ struct dyn_set;
 /*
  * initializes a dynamic set with a start size of start_size
  * must be freed with dyn_set_deinit()
+ *
  * @return		a pointer to the set
  * 				NULL if an error occured creating the set or start_size is 0
  */
@@ -23,6 +24,8 @@ void dyn_set_deinit(struct dyn_set *set);
 
 /*
  * locks the recursive set mutex
+ * dyn_set functions apply this when needed, only use when looping through the set
+ *
  * @return		0 on success
  * 				1 on failure
  */
@@ -41,6 +44,7 @@ uint64_t dyn_set_count(struct dyn_set *set);
 
 /*
  * returns the item at the given index for set
+ *
  * @return		a void * item
  * 				NULL if set is NULL or index is invalid
  */
@@ -48,6 +52,7 @@ void *dyn_set_get_item(struct dyn_set *set, uint64_t index);
 
 /* 
  * adds the specified item to the end of the set pointed to by set
+ *
  * @return		0 on success
  * 				1 on memory allocation error
  * 				2 if set or item is NULL
@@ -56,6 +61,7 @@ int8_t dyn_set_add(struct dyn_set *set, void *item);
 
 /*
  * removes the specified item, if it exists, from set
+ *
  * @return		0 on success
  * 				1 on item not in set
  * 				2 if set or item is NULL
